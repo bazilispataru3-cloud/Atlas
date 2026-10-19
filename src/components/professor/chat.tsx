@@ -32,7 +32,21 @@ const LEVELS: { value: ExplanationLevel; label: string }[] = [
   { value: "avanzato", label: "Avanzato" },
 ];
 
-export function ProfessorChat({ initialTopicId, initialPrompt, initialDocId, compact }: { initialTopicId?: string; initialPrompt?: string; initialDocId?: string; compact?: boolean }) {
+export function ProfessorChat({
+  initialTopicId,
+  initialPrompt,
+  initialDocId,
+  initialThreadId,
+  onThreadChange,
+  compact,
+}: {
+  initialTopicId?: string;
+  initialPrompt?: string;
+  initialDocId?: string;
+  initialThreadId?: string | null;
+  onThreadChange?: (id: string) => void;
+  compact?: boolean;
+}) {
   const integrations = useIntegrations();
   const settingsLevel = useAtlas((s) => s.settings.explanationLevel);
   const chats = useAtlas((s) => s.chats);
@@ -41,7 +55,7 @@ export function ProfessorChat({ initialTopicId, initialPrompt, initialDocId, com
   const quizResults = useAtlas((s) => s.quizResults);
   const topicStates = useTopicStates();
 
-  const [threadId, setThreadId] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(initialThreadId ?? null);
   const [level, setLevel] = useState<ExplanationLevel>(settingsLevel);
   const [topicId, setTopicId] = useState<string | undefined>(initialTopicId);
   const [docId, setDocId] = useState<string>(initialDocId ?? "");
@@ -88,7 +102,7 @@ export function ProfessorChat({ initialTopicId, initialPrompt, initialDocId, com
       ].filter(Boolean).join("\n");
     }
     if (promptId === "programma") {
-      return "Il programma di studio è generato dal **pianificatore** di ATLAS a partire da data d’esame, ore disponibili, giorni liberi e progressi reali. Aprilo da [Calendario](/calendario) e premi «Genera piano»: si aggiorna automaticamente in base ai risultati dei quiz.";
+      return "Il programma di studio è generato dal **pianificatore** di ATLAS a partire da data d’esame, ore disponibili, giorni liberi e progressi reali. Aprilo da [Calendario](/calendario) e premi «Calcola il piano»; quando cambiano i tuoi risultati usa «Ricalcola dal progresso reale».";
     }
     if (promptId === "video") {
       const list = topicRef ? resourcesForTopic(topicRef.topic.id, topicRef.subject.id).filter((r) => r.kind === "videolezione") : [];
@@ -117,6 +131,7 @@ export function ProfessorChat({ initialTopicId, initialPrompt, initialDocId, com
     const userMsg: ChatMessage = { id: uid("m"), role: "user", content, createdAt: now, meta: { level, topicId } };
     let current: ChatThread = { ...base, messages: [...base.messages, userMsg] };
     setThreadId(current.id);
+    if (current.id !== threadId) onThreadChange?.(current.id);
     save(current);
     setInput("");
 
@@ -173,6 +188,23 @@ export function ProfessorChat({ initialTopicId, initialPrompt, initialDocId, com
       <div className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] px-4 py-3">
         <Segmented size="sm" value={level} onChange={setLevel} options={LEVELS} />
         <div className="ml-auto flex items-center gap-1">
+          {chats.length > 0 && (
+            <Select
+              value={threadId ?? ""}
+              onChange={(e) => {
+                abortRef.current?.abort();
+                setThreadId(e.target.value || null);
+                if (e.target.value) onThreadChange?.(e.target.value);
+              }}
+              className={cn("h-8 w-40 text-[12px]", !compact && "lg:hidden")}
+              aria-label="Conversazioni recenti"
+            >
+              <option value="">Conversazioni…</option>
+              {[...chats].reverse().slice(0, 30).map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </Select>
+          )}
           {messages.length > 0 && (
             <button onClick={newThread} className="flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12px] text-fg-subtle hover:bg-white/5 hover:text-fg" title="Nuova conversazione">
               <Plus className="h-3.5 w-3.5" /> Nuova

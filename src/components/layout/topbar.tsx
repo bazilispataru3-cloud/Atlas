@@ -40,7 +40,7 @@ export function Topbar() {
             <Logo compact />
           </Link>
           <div className="hidden min-w-0 items-center gap-2 text-sm text-fg-subtle lg:flex">
-            <span className="text-fg-muted">{current?.label ?? "ATLAS STUDY"}</span>
+            <span className="text-fg-muted">{current?.label ?? (pathname.startsWith("/studio/") ? "Sessione di studio" : "ATLAS STUDY")}</span>
           </div>
 
           <button

@@ -349,7 +349,7 @@ export function TopicPage({ topicId }: { topicId: string }) {
             <section>
               <h2 className="mb-3 text-[15px] font-semibold text-fg">Programma</h2>
               <ul className="space-y-3">
-                <SourceItem s={{ label: `${SYLLABUS_SOURCE.label} — ${ref.subject.name}`, url: SYLLABUS_SOURCE.pdf[ref.subject.id], detail: `Pubblicato il ${fmt.date(SYLLABUS_SOURCE.published)}, verificato il ${fmt.date(SYLLABUS_SOURCE.verifiedOn)}.`, kind: "ufficiale" }} />
+                <SourceItem s={{ label: `${SYLLABUS_SOURCE.label} — ${ref.subject.name}`, url: SYLLABUS_SOURCE.pdf[ref.subject.id], detail: `Pubblicato il ${fmt.dateYear(SYLLABUS_SOURCE.published)}, verificato il ${fmt.dateYear(SYLLABUS_SOURCE.verifiedOn)}.`, kind: "ufficiale" }} />
               </ul>
             </section>
             {lesson && (

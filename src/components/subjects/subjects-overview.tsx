@@ -118,7 +118,7 @@ export function SubjectsOverview() {
             <BookOpenCheck className="h-4 w-4 text-azure-300" /> Fonte del programma
           </div>
           <p className="mt-2 text-[13px] leading-relaxed text-fg-muted">
-            {SYLLABUS_SOURCE.label}, pubblicato dal MUR il {fmt.date(SYLLABUS_SOURCE.published)}. Il testo degli argomenti è riportato con sole correzioni tipografiche; il raggruppamento in capitoli è editoriale. Verificato il {fmt.date(SYLLABUS_SOURCE.verifiedOn)}.
+            {SYLLABUS_SOURCE.label}, pubblicato dal MUR il {fmt.dateYear(SYLLABUS_SOURCE.published)}. Il testo degli argomenti è riportato con sole correzioni tipografiche; il raggruppamento in capitoli è editoriale. Verificato il {fmt.dateYear(SYLLABUS_SOURCE.verifiedOn)}.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button variant="outline" size="sm" href={SYLLABUS_SOURCE.pageUrl} external>

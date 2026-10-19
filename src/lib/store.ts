@@ -359,7 +359,8 @@ export const useAtlas = create<AtlasState>()(
       loadDemo: (data) => set((s) => ({ ...s, ...data, demo: true })),
       clearDemo: () => set((s) => ({ ...initialData(), profile: { ...s.profile }, settings: s.settings, library: s.library })),
       importData: (data) => set((s) => ({ ...s, ...data })),
-      resetAll: () => set({ ...initialData() }),
+      // Library metadata is kept: its files live in IndexedDB and are removed from the Biblioteca page.
+      resetAll: () => set((s) => ({ ...initialData(), library: s.library })),
     }),
     {
       name: "atlas-study-v1",

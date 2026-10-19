@@ -62,6 +62,7 @@ const itWeekday = new Intl.DateTimeFormat("it-IT", { weekday: "long" });
 const itWeekdayShort = new Intl.DateTimeFormat("it-IT", { weekday: "short" });
 const itFull = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const itTime = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
+const itDateYear = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric" });
 
 export const fmt = {
   date: (d: Date | number | string) => itDate.format(toDate(d)),
@@ -70,6 +71,7 @@ export const fmt = {
   weekdayShort: (d: Date | number | string) => itWeekdayShort.format(toDate(d)).replace(".", ""),
   full: (d: Date | number | string) => itFull.format(toDate(d)),
   time: (d: Date | number | string) => itTime.format(toDate(d)),
+  dateYear: (d: Date | number | string) => itDateYear.format(toDate(d)),
   minutes: (min: number) => {
     const m = Math.round(min);
     if (m < 60) return `${m} min`;
