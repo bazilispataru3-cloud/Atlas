@@ -35,13 +35,15 @@ interface Props {
   onFinish?: (o: QuizOutcome) => void;
   /** Hide the final "add errors to flashcards" action. */
   compactSummary?: boolean;
+  /** Provenance shown under each question. */
+  sourceLabel?: string;
 }
 
 type AnswerState = { value: string | number | null; checked: boolean; selfScore?: number; ai?: { score: number; feedback: string; missing: string[] } };
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
-export function QuizRunner({ questions, variant = "practice", title, timeLimitSec, seed, onFinish, compactSummary }: Props) {
+export function QuizRunner({ questions, variant = "practice", title, timeLimitSec, seed, onFinish, compactSummary, sourceLabel = "quesito originale ATLAS" }: Props) {
   const ordered = useMemo(() => (variant === "progressive" ? [...questions].sort((a, b) => a.difficulty - b.difficulty) : questions), [questions, variant]);
   const presented = useMemo<PresentedQuestion[]>(() => present(ordered, seed), [ordered, seed]);
   const [index, setIndex] = useState(0);
@@ -152,7 +154,7 @@ export function QuizRunner({ questions, variant = "practice", title, timeLimitSe
 
       {/* Question */}
       <Card className="p-5 sm:p-6">
-        <div className="text-[11.5px] text-fg-subtle">{getTopicRef(current.q.topicId)?.topic.title} · quesito originale ATLAS</div>
+        <div className="text-[11.5px] text-fg-subtle">{[getTopicRef(current.q.topicId)?.topic.title, sourceLabel].filter(Boolean).join(" · ")}</div>
         <p className="mt-2 text-[16.5px] leading-relaxed text-fg">{current.q.stem}</p>
 
         {current.q.type === "mcq" && (

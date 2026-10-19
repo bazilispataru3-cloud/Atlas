@@ -34,9 +34,13 @@ export async function deleteDocData(id: string) {
 
 let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
 
-/** Lazily loads pdf.js with the worker served from /public (copied at install time). */
+/**
+ * Lazily loads pdf.js with the worker served from /public (copied at install time).
+ * The legacy build runs on current Safari, Firefox and Chromium releases; the
+ * modern build needs JS APIs that are not yet widely available.
+ */
 export function loadPdfjs() {
-  pdfjsPromise ??= import("pdfjs-dist").then((pdfjs) => {
+  pdfjsPromise ??= (import("pdfjs-dist/legacy/build/pdf.mjs") as Promise<typeof import("pdfjs-dist")>).then((pdfjs) => {
     pdfjs.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
     return pdfjs;
   });

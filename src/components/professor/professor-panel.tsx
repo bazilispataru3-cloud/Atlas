@@ -42,7 +42,7 @@ export function ProfessorPanel() {
         </Link>
       }
     >
-      <div className="h-full">{open && <ProfessorChat initialTopicId={topicId} initialPrompt={ctx?.prompt} compact />}</div>
+      <div className="h-full">{open && <ProfessorChat initialTopicId={topicId} initialPrompt={ctx?.prompt} initialDocId={ctx?.docId} compact />}</div>
     </Sheet>
   );
 }

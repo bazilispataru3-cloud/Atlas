@@ -32,7 +32,7 @@ const LEVELS: { value: ExplanationLevel; label: string }[] = [
   { value: "avanzato", label: "Avanzato" },
 ];
 
-export function ProfessorChat({ initialTopicId, initialPrompt, compact }: { initialTopicId?: string; initialPrompt?: string; compact?: boolean }) {
+export function ProfessorChat({ initialTopicId, initialPrompt, initialDocId, compact }: { initialTopicId?: string; initialPrompt?: string; initialDocId?: string; compact?: boolean }) {
   const integrations = useIntegrations();
   const settingsLevel = useAtlas((s) => s.settings.explanationLevel);
   const chats = useAtlas((s) => s.chats);
@@ -44,7 +44,7 @@ export function ProfessorChat({ initialTopicId, initialPrompt, compact }: { init
   const [threadId, setThreadId] = useState<string | null>(null);
   const [level, setLevel] = useState<ExplanationLevel>(settingsLevel);
   const [topicId, setTopicId] = useState<string | undefined>(initialTopicId);
-  const [docId, setDocId] = useState<string>("");
+  const [docId, setDocId] = useState<string>(initialDocId ?? "");
   const [input, setInput] = useState(initialPrompt ?? "");
   const [busy, setBusy] = useState(false);
   const abortRef = useRef<AbortController | null>(null);

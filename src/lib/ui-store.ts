@@ -7,7 +7,7 @@ interface UIState {
   startStudyOpen: boolean;
   startStudyPreset: { subject?: SubjectId; topicId?: string; mode?: StudyMode } | null;
   professorOpen: boolean;
-  professorContext: { topicId?: string; prompt?: string } | null;
+  professorContext: { topicId?: string; prompt?: string; docId?: string } | null;
   moreOpen: boolean;
   openStartStudy: (preset?: UIState["startStudyPreset"]) => void;
   closeStartStudy: () => void;
