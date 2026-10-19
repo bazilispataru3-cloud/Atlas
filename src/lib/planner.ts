@@ -64,8 +64,9 @@ export interface PlanResult {
 
 const LEVEL_FACTOR = { base: 1.25, intermedio: 1, avanzato: 0.8 } as const;
 const REVIEW_OFFSETS = [1, 3, 7, 16];
-const REVIEW_MINUTES = [15, 12, 12, 15];
+const REVIEW_MINUTES = [10, 8, 8, 10];
 const MIN_CHUNK = 25;
+const MIN_TAIL = 15;
 const STUDY_SHARE = 0.88; // the rest of the available time is reserved for breaks
 
 const SUBJECT_LABEL: Record<SubjectId, string> = {
@@ -280,7 +281,8 @@ export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): Plan
     // Learning continues past the ideal deadline if needed; a warning reports it.
     while (cap >= MIN_CHUNK && queue.length) {
       const task = queue[0];
-      const minutes = Math.min(task.minutes, cap);
+      // Avoid leftover fragments: a remainder under MIN_TAIL is done today (small overrun).
+      const minutes = task.minutes - cap < MIN_TAIL ? task.minutes : cap;
       const ref = task.input.ref;
       const partial = minutes < task.minutes;
       push({
@@ -295,7 +297,7 @@ export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): Plan
             ? "Argomento già affrontato ma non consolidato: riprendi le lacune emerse dai quiz, poi verifica."
             : `Unità ${ref.unit.number} · ${ref.chapter.title}. Chiudi con 5 domande di verifica: la lettura da sola non conta come completamento.`,
       });
-      cap -= minutes;
+      cap = Math.max(0, cap - minutes);
       if (partial) {
         task.minutes -= minutes;
         task.part += 1;
@@ -314,7 +316,7 @@ export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): Plan
     studyMinutes += used;
     const pauses = Math.floor(used / 100);
     if (pauses > 0) {
-      push({ date: key, kind: "pausa", topicIds: [], minutes: pauses * 15, title: `${pauses} ${pauses === 1 ? "pausa" : "pause"} attive`, detail: "Ogni 50–100 minuti: alzati, idratati, niente schermi. Le pause sono parte del piano." });
+      push({ date: key, kind: "pausa", topicIds: [], minutes: pauses * 15, title: pauses === 1 ? "1 pausa attiva" : `${pauses} pause attive`, detail: "Ogni 50–100 minuti: alzati, idratati, niente schermi. Le pause sono parte del piano." });
     }
   }
 
@@ -326,7 +328,7 @@ export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): Plan
       `Con le ore indicate restano ${unscheduled} argomenti non pianificati prima dell’esame. Aumenta le ore disponibili, riduci i giorni di riposo o valuta il secondo appello.`,
     );
   }
-  const lateLearning = items.filter((it) => (it.kind === "apprendimento" || it.kind === "recupero") && new Date(it.date) >= learningDeadline).length;
+  const lateLearning = items.filter((it) => (it.kind === "apprendimento" || it.kind === "recupero") && startOfDay(it.date) >= learningDeadline).length;
   if (lateLearning > 0 && unscheduled === 0) {
     warnings.push(`${lateLearning} sessioni di studio cadono nelle ultime ${reviewWindow} giornate, riservate idealmente a ripasso e simulazioni.`);
   }

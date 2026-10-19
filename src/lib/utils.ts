@@ -12,9 +12,21 @@ export function uid(prefix = "id"): string {
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Parses dates; a bare "yyyy-mm-dd" is read as a local calendar day (the Date
+ * constructor would read it as UTC midnight, i.e. the previous day west of UTC).
+ */
+export function toDate(d: Date | number | string): Date {
+  if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split("-").map(Number);
+    return new Date(y, m - 1, day);
+  }
+  return new Date(d);
+}
+
 /** Local calendar day key, e.g. "2026-10-19". */
 export function dayKey(d: Date | number | string = new Date()): string {
-  const date = new Date(d);
+  const date = toDate(d);
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
@@ -22,13 +34,13 @@ export function dayKey(d: Date | number | string = new Date()): string {
 }
 
 export function startOfDay(d: Date | number | string = new Date()): Date {
-  const date = new Date(d);
+  const date = toDate(d);
   date.setHours(0, 0, 0, 0);
   return date;
 }
 
 export function addDays(d: Date | number | string, n: number): Date {
-  const date = new Date(d);
+  const date = toDate(d);
   date.setDate(date.getDate() + n);
   return date;
 }
@@ -52,12 +64,12 @@ const itFull = new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric
 const itTime = new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" });
 
 export const fmt = {
-  date: (d: Date | number | string) => itDate.format(new Date(d)),
-  dateShort: (d: Date | number | string) => itDateShort.format(new Date(d)),
-  weekday: (d: Date | number | string) => itWeekday.format(new Date(d)),
-  weekdayShort: (d: Date | number | string) => itWeekdayShort.format(new Date(d)).replace(".", ""),
-  full: (d: Date | number | string) => itFull.format(new Date(d)),
-  time: (d: Date | number | string) => itTime.format(new Date(d)),
+  date: (d: Date | number | string) => itDate.format(toDate(d)),
+  dateShort: (d: Date | number | string) => itDateShort.format(toDate(d)),
+  weekday: (d: Date | number | string) => itWeekday.format(toDate(d)),
+  weekdayShort: (d: Date | number | string) => itWeekdayShort.format(toDate(d)).replace(".", ""),
+  full: (d: Date | number | string) => itFull.format(toDate(d)),
+  time: (d: Date | number | string) => itTime.format(toDate(d)),
   minutes: (min: number) => {
     const m = Math.round(min);
     if (m < 60) return `${m} min`;
