@@ -117,6 +117,15 @@
   :root {
     color-scheme: dark;
   }
+  /* Decorative glows must never cause horizontal scrolling; clip keeps sticky working. */
+  html,
+  body {
+    overflow-x: clip;
+  }
+  /* Grid items may shrink below their content width (no layout blow-outs on mobile). */
+  .grid > * {
+    min-width: 0;
+  }
 
   html {
     background: var(--color-ink-950);
