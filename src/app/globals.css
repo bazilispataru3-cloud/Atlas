@@ -1,0 +1,250 @@
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────────────────────
+   ATLAS STUDY — Design tokens
+   Dark-first palette. Electric blue = learning features & free
+   content. Luminous gold = premium content. Accents per study
+   mode and per subject.
+   ────────────────────────────────────────────────────────────── */
+
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+
+  /* Surfaces */
+  --color-ink-950: #040406;
+  --color-ink-900: #08080b;
+  --color-ink-850: #0c0c10;
+  --color-ink-800: #111116;
+  --color-ink-750: #16161c;
+  --color-ink-700: #1c1c24;
+  --color-ink-600: #262630;
+  --color-ink-500: #363642;
+  --color-ink-400: #4a4a58;
+
+  /* Text */
+  --color-fg: #f5f5f7;
+  --color-fg-muted: #a6a6b3;
+  --color-fg-subtle: #6e6e7c;
+
+  /* Electric blue — didactics & free */
+  --color-azure-200: #c4e0ff;
+  --color-azure-300: #8fc4ff;
+  --color-azure-400: #56a6ff;
+  --color-azure-500: #2f8bff;
+  --color-azure-600: #1b6ee6;
+  --color-azure-700: #1554b0;
+
+  /* Luminous gold — premium */
+  --color-gold-200: #fbedc4;
+  --color-gold-300: #f6dc8f;
+  --color-gold-400: #efc55c;
+  --color-gold-500: #e2aa2f;
+  --color-gold-600: #bf8a17;
+  --color-gold-700: #8f6510;
+
+  /* Study modes */
+  --color-fast: #2dd4bf;
+  --color-deep: #6b8cff;
+  --color-ultra: #e879f9;
+
+  /* Subjects */
+  --color-bio: #199e70;
+  --color-chem: #d95926;
+  --color-phys: #9085e9;
+
+  /* Feedback */
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+
+  --radius-card: 1.25rem;
+  --radius-xl2: 1.5rem;
+
+  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 20px 40px -24px rgb(0 0 0 / 0.8);
+  --shadow-glow-azure: 0 0 0 1px rgb(86 166 255 / 0.35), 0 0 24px -4px rgb(47 139 255 / 0.45);
+  --shadow-glow-gold: 0 0 0 1px rgb(239 197 92 / 0.4), 0 0 26px -4px rgb(226 170 47 / 0.5);
+
+  --animate-fade-up: fade-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-fade-in: fade-in 0.35s ease-out both;
+  --animate-pulse-gold: pulse-gold 3.2s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pulse-gold {
+    0%, 100% { box-shadow: 0 0 0 1px rgb(239 197 92 / 0.55), 0 0 18px 0 rgb(226 170 47 / 0.35), 0 10px 30px -10px rgb(226 170 47 / 0.6); }
+    50% { box-shadow: 0 0 0 1px rgb(246 220 143 / 0.8), 0 0 34px 4px rgb(226 170 47 / 0.55), 0 10px 34px -8px rgb(226 170 47 / 0.75); }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    background: var(--color-ink-950);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background: var(--color-ink-950);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgb(47 139 255 / 0.35);
+    color: white;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-azure-400);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-500) transparent;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Atmospheric background: two very soft light sources and film grain. */
+  .atlas-backdrop {
+    background:
+      radial-gradient(1200px 600px at 8% -10%, rgb(47 139 255 / 0.10), transparent 60%),
+      radial-gradient(900px 500px at 105% 110%, rgb(226 170 47 / 0.06), transparent 60%),
+      radial-gradient(700px 400px at 70% 0%, rgb(232 121 249 / 0.04), transparent 60%),
+      var(--color-ink-950);
+  }
+
+  .atlas-grain::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  .card {
+    position: relative;
+    border-radius: var(--radius-card);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.028), rgb(255 255 255 / 0.012));
+    border: 1px solid rgb(255 255 255 / 0.07);
+    box-shadow: var(--shadow-card);
+  }
+
+  .card-hover {
+    transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-2px);
+    border-color: rgb(255 255 255 / 0.12);
+  }
+
+  .glow-azure:hover {
+    box-shadow: var(--shadow-glow-azure);
+    border-color: rgb(86 166 255 / 0.45);
+  }
+
+  .glow-gold:hover {
+    box-shadow: var(--shadow-glow-gold);
+    border-color: rgb(239 197 92 / 0.55);
+  }
+
+  .hairline {
+    border-color: rgb(255 255 255 / 0.07);
+  }
+
+  .text-gradient-gold {
+    background: linear-gradient(100deg, var(--color-gold-200), var(--color-gold-400) 45%, var(--color-gold-600));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .text-gradient-azure {
+    background: linear-gradient(100deg, var(--color-azure-200), var(--color-azure-400) 50%, var(--color-azure-600));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, rgb(255 255 255 / 0.03) 0%, rgb(255 255 255 / 0.08) 50%, rgb(255 255 255 / 0.03) 100%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  .prose-atlas {
+    color: var(--color-fg-muted);
+    line-height: 1.75;
+    font-size: 0.97rem;
+  }
+  .prose-atlas p + p {
+    margin-top: 0.9rem;
+  }
+  .prose-atlas strong {
+    color: var(--color-fg);
+    font-weight: 600;
+  }
+  .prose-atlas em {
+    color: var(--color-fg);
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
