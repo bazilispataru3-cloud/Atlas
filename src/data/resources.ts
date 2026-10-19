@@ -578,7 +578,7 @@ export const RESOURCES: Resource[] = [
   {
     id: "hyperphysics",
     title: "HyperPhysics",
-    url: "http://hyperphysics.phy-astr.gsu.edu/hbase/hframe.html",
+    url: "https://hyperphysics.gsu.edu/hbase/hframe.html",
     provider: "Georgia State University",
     description: "Mappe concettuali navigabili di tutta la fisica di base: ottime per il ripasso e per i collegamenti tra concetti.",
     language: "en",
