@@ -118,11 +118,11 @@ export function ModeCard({
           ))}
         </ul>
       )}
-      <div className="relative mt-auto flex items-center justify-between gap-3 pt-6 text-[12.5px] text-fg-subtle">
-        <span className="flex items-center gap-1.5">
+      <div className="relative mt-auto flex flex-col gap-1 pt-6 text-[12.5px] text-fg-subtle">
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
           <Clock className="h-3.5 w-3.5" /> {info.time}
         </span>
-        <span className="truncate">{info.bestFor}</span>
+        {!compact && <span>{info.bestFor}</span>}
       </div>
       {selected && (
         <span className={cn("absolute right-4 top-4 grid h-6 w-6 place-items-center rounded-full bg-white text-ink-950")}>

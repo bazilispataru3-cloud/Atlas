@@ -100,7 +100,7 @@ function ReadSection({ topicId, id, title, children }: { topicId: string; id: st
   );
 }
 
-function SectionsView({ lesson, topicId, compact }: { lesson: Lesson; topicId: string; compact?: boolean }) {
+export function SectionsView({ lesson, topicId, compact }: { lesson: Lesson; topicId: string; compact?: boolean }) {
   return (
     <div className="space-y-10">
       {lesson.sections.map((s) => (
@@ -122,7 +122,7 @@ function SectionsView({ lesson, topicId, compact }: { lesson: Lesson; topicId: s
   );
 }
 
-function Schema({ lesson }: { lesson: Lesson }) {
+export function Schema({ lesson }: { lesson: Lesson }) {
   return (
     <div>
       <div className="mb-3 text-[13px] text-fg-subtle">{lesson.schema.title}</div>
@@ -140,7 +140,7 @@ function Schema({ lesson }: { lesson: Lesson }) {
   );
 }
 
-function Definitions({ lesson }: { lesson: Lesson }) {
+export function Definitions({ lesson }: { lesson: Lesson }) {
   return (
     <dl className="grid gap-3 md:grid-cols-2">
       {lesson.definitions.map((d) => (
@@ -153,7 +153,7 @@ function Definitions({ lesson }: { lesson: Lesson }) {
   );
 }
 
-function Objectives({ ref, lesson }: { ref: TopicRef; lesson?: Lesson }) {
+export function Objectives({ ref, lesson }: { ref: TopicRef; lesson?: Lesson }) {
   return (
     <div className="space-y-4">
       <OfficialBox ref={ref} />
@@ -289,7 +289,7 @@ function ReviewPlan({ ctx }: { ctx: StepCtx }) {
   );
 }
 
-function AiExplain({ ref }: { ref: TopicRef }) {
+export function AiExplain({ ref }: { ref: TopicRef }) {
   const openProfessor = useUI((s) => s.openProfessor);
   return (
     <div className="space-y-3">
@@ -468,17 +468,58 @@ export function buildSteps(ctx: StepCtx): SessionStep[] {
     ) },
     orale: { id: "orale", title: "Simulazione orale", technique: "Interrogazione", icon: <Mic className={I} />, render: () => <OralExam topicId={ref.topic.id} onComplete={() => undefined} /> },
     ripasso: { id: "ripasso", title: "Piano di ripasso", technique: "Ripetizione dilazionata", icon: <CalendarCheck className={I} />, render: () => <ReviewPlan ctx={ctx} /> },
-  } satisfies Record<string, SessionStep>;
+  } satisfies Record<Exclude<StepKey, "risorse">, SessionStep>;
 
-  if (mode === "fast") return [S.riassunto, S.definizioni, S.schema, S.concetti, S.flashcard, S.quizRapido];
-  if (mode === "deep") return [S.lezione, S.spiegazione, S.esempi, S.mappa, S.recall, S.cornell, S.problemi, S.quizProgressivo, S.lacune, resStep];
-
-  // Ultra: the path adapts to the nature of the topic.
-  const kind = ultraKind(ref);
-  if (kind === "quantitativo") return [S.attivazione, S.dual, S.spiegazione, S.autospiegazione, S.problemi, S.interleaving, S.feynman, S.orale, S.ripasso];
-  if (kind === "misto") return [S.attivazione, S.spiegazione, S.dual, S.autospiegazione, S.problemi, S.elaborazione, S.feynman, S.interleaving, S.ripasso];
-  return [S.attivazione, S.dual, S.spiegazione, S.elaborazione, S.feynman, S.palazzo, S.interleaving, S.orale, S.ripasso];
+  const all: Record<StepKey, SessionStep> = { ...S, risorse: resStep };
+  const seq = mode === "ultra" ? ULTRA_SEQUENCE[ultraKind(ref)] : MODE_SEQUENCE[mode];
+  return seq.map((k) => all[k]);
 }
+
+type StepKey =
+  | "riassunto" | "definizioni" | "schema" | "concetti" | "flashcard" | "quizRapido" | "lezione" | "spiegazione" | "esempi" | "mappa"
+  | "recall" | "cornell" | "problemi" | "quizProgressivo" | "lacune" | "attivazione" | "dual" | "elaborazione" | "autospiegazione"
+  | "feynman" | "palazzo" | "interleaving" | "orale" | "ripasso" | "risorse";
+
+/** Step titles, kept in sync with buildSteps; used to describe the paths without a lesson at hand. */
+export const STEP_LABEL: Record<StepKey, string> = {
+  riassunto: "Riassunto essenziale",
+  definizioni: "Definizioni essenziali",
+  schema: "Schema sintetico",
+  concetti: "Concetti chiave e syllabus",
+  flashcard: "Flashcard rapide",
+  quizRapido: "Quiz rapido",
+  lezione: "Lezione introduttiva",
+  spiegazione: "Spiegazione approfondita",
+  esempi: "Esempi e applicazioni",
+  mappa: "Mappa concettuale",
+  recall: "Active recall",
+  cornell: "Metodo Cornell",
+  problemi: "Problemi guidati",
+  quizProgressivo: "Quiz progressivo",
+  lacune: "Analisi delle lacune",
+  attivazione: "Attivazione: cosa sai già?",
+  dual: "Dual coding",
+  elaborazione: "Elaborazione: perché?",
+  autospiegazione: "Auto-spiegazione",
+  feynman: "Tecnica di Feynman",
+  palazzo: "Palazzo della memoria",
+  interleaving: "Interleaving",
+  orale: "Simulazione orale",
+  ripasso: "Piano di ripasso",
+  risorse: "Video e corsi consigliati",
+};
+
+export const MODE_SEQUENCE: Record<"fast" | "deep", StepKey[]> = {
+  fast: ["riassunto", "definizioni", "schema", "concetti", "flashcard", "quizRapido"],
+  deep: ["lezione", "spiegazione", "esempi", "mappa", "recall", "cornell", "problemi", "quizProgressivo", "lacune", "risorse"],
+};
+
+// Ultra: the path adapts to the nature of the topic.
+export const ULTRA_SEQUENCE: Record<UltraKind, StepKey[]> = {
+  meccanistico: ["attivazione", "dual", "spiegazione", "elaborazione", "feynman", "palazzo", "interleaving", "orale", "ripasso"],
+  quantitativo: ["attivazione", "dual", "spiegazione", "autospiegazione", "problemi", "interleaving", "feynman", "orale", "ripasso"],
+  misto: ["attivazione", "spiegazione", "dual", "autospiegazione", "problemi", "elaborazione", "feynman", "interleaving", "ripasso"],
+};
 
 export type UltraKind = "meccanistico" | "quantitativo" | "misto";
 
