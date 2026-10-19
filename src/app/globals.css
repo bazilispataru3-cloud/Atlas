@@ -94,6 +94,25 @@
   }
 }
 
+/* Technique illustrations (Study Academy). Disabled by the reduced-motion rules below. */
+@keyframes atlas-draw {
+  from { stroke-dashoffset: var(--len, 400); }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes atlas-glow {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+@keyframes atlas-walk {
+  from { offset-distance: 0%; }
+  to { offset-distance: 100%; }
+}
+@keyframes atlas-rise {
+  0% { opacity: 0; transform: translateY(8px); }
+  15%, 70% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+
 @layer base {
   :root {
     color-scheme: dark;

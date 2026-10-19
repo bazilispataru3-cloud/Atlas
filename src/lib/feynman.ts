@@ -32,7 +32,7 @@ function escapeRe(s: string) {
 }
 
 /** Keyword match anchored at a word start ("usa" does not match "causa"); prefixes are allowed. */
-function has(text: string, kw: string) {
+export function has(text: string, kw: string) {
   return new RegExp(`(^|[^a-z0-9])${escapeRe(normText(kw))}`).test(text);
 }
 

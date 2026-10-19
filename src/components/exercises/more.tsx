@@ -10,7 +10,7 @@ import { useSpeechInput } from "@/lib/speech";
 import { useAtlas } from "@/lib/store";
 import { getLesson } from "@/data/lessons";
 import { getTopicRef } from "@/data/syllabus";
-import { normText } from "@/lib/feynman";
+import { has, normText } from "@/lib/feynman";
 import { cn, fmt, shuffle } from "@/lib/utils";
 
 // ── Oral exam simulation ──────────────────────────────────────
@@ -374,7 +374,7 @@ export function FreeRecall({ topicId, onComplete }: { topicId: string; onComplet
   if (!lesson) return <Notice tone="info">Disponibile per gli argomenti con lezione completa.</Notice>;
   const concepts = lesson.feynman.essentials;
   const t = normText(text);
-  const hit = concepts.map((c) => c.keywords.every((g) => g.some((k) => t.includes(normText(k)))));
+  const hit = concepts.map((c) => c.keywords.every((g) => g.some((k) => has(t, k))));
   const score = hit.filter(Boolean).length / concepts.length;
   return (
     <div className="space-y-3">
