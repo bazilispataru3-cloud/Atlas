@@ -92,7 +92,7 @@ export function StackedBars({
             .map((s) => ({ s, v: d.values[s.key] ?? 0 }))
             .filter((x) => x.v > 0);
           return (
-            <g key={d.label} onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} tabIndex={0} aria-label={`${d.label}: ${format(totals[i])}`}>
+            <g key={i} onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} tabIndex={0} aria-label={`${d.label}: ${format(totals[i])}`}>
               <rect x={cx - slot / 2} y={pad.t} width={slot} height={innerH} fill={hover === i ? "rgba(255,255,255,0.03)" : "transparent"} />
               {segs.map(({ s, v }, k) => {
                 const y0 = y(acc);
@@ -144,8 +144,8 @@ export function StackedBars({
           </tr>
         </thead>
         <tbody>
-          {data.map((d) => (
-            <tr key={d.label}>
+          {data.map((d, i) => (
+            <tr key={i}>
               <td>{d.sublabel ?? d.label}</td>
               {series.map((s) => (
                 <td key={s.key}>{format(d.values[s.key] ?? 0)}</td>
