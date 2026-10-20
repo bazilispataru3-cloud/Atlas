@@ -1,8 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
-import "@fontsource/instrument-serif/400.css";
-import "@fontsource/instrument-serif/400-italic.css";
+import "@fontsource-variable/ibm-plex-sans/wght.css";
+import "@fontsource-variable/ibm-plex-sans/wght-italic.css";
+import "@fontsource-variable/newsreader/opsz.css";
+import "@fontsource-variable/newsreader/opsz-italic.css";
+import "@fontsource/ibm-plex-mono/400.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#040406",
+  themeColor: "#06070a",
   colorScheme: "dark",
   width: "device-width",
   initialScale: 1,
@@ -26,7 +27,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="it" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+    <html lang="it" suppressHydrationWarning>
       <body className="atlas-backdrop atlas-grain min-h-dvh">{children}</body>
     </html>
   );

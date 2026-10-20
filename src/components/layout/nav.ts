@@ -36,6 +36,12 @@ export const NAV: NavItem[] = [
   { id: "profilo", label: "Profilo e impostazioni", short: "Profilo", href: "/profilo", icon: Settings, group: "account" },
 ];
 
+export const NAV_GROUPS: { id: NavItem["group"]; label: string }[] = [
+  { id: "studio", label: "Studio" },
+  { id: "strumenti", label: "Strumenti" },
+  { id: "account", label: "Account" },
+];
+
 export function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");

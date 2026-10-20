@@ -200,6 +200,12 @@ export interface Resource {
   /** YouTube video id (real thumbnail is used as cover). */
   youtubeId?: string;
   cover?: { motif: CoverMotif; seed: number };
+  /**
+   * Official cover image (og:image or the course/book cover published by the provider itself),
+   * stored locally under /public or hotlinked from the provider's own domain/CDN. Generated
+   * `cover` art is the fallback when this is missing or fails to load.
+   */
+  image?: { src: string; alt: string; width?: number; height?: number; credit?: string; sourcePage?: string };
   verifiedOn: string;
   source: "catalogo" | "youtube-api" | "ricerca-web";
 }

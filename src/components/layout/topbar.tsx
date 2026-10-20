@@ -10,7 +10,7 @@ import { useUI } from "@/lib/ui-store";
 import { useAtlas } from "@/lib/store";
 import { useDueCards, useHydrated } from "@/lib/hooks";
 import { CommandPalette } from "./command-palette";
-import { Kbd } from "@/components/ui/primitives";
+import { Kbd, useModKey } from "@/components/ui/primitives";
 
 export function Topbar() {
   const pathname = usePathname();
@@ -19,7 +19,9 @@ export function Topbar() {
   const hydrated = useHydrated();
   const demo = useAtlas((s) => s.demo);
   const due = useDueCards();
+  const mod = useModKey();
   const current = NAV.find((n) => isActive(pathname, n.href));
+  const place = current?.label ?? (pathname.startsWith("/studio/") ? "Sessione di studio" : "ATLAS STUDY");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -34,48 +36,59 @@ export function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-white/[0.05] bg-ink-950/70 backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4 sm:px-6 lg:h-16 lg:px-10">
-          <Link href="/" className="lg:hidden" aria-label="Dashboard">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-ink-950/75 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
+        <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-10">
+          <Link href="/" className="shrink-0 rounded-lg lg:hidden" aria-label="ATLAS STUDY, vai alla dashboard">
             <Logo compact />
           </Link>
-          <div className="hidden min-w-0 items-center gap-2 text-sm text-fg-subtle lg:flex">
-            <span className="text-fg-muted">{current?.label ?? (pathname.startsWith("/studio/") ? "Sessione di studio" : "ATLAS STUDY")}</span>
+          <div className="hidden min-w-0 text-sm font-medium text-fg-muted lg:block">
+            <span className="truncate">{place}</span>
           </div>
 
           <button
+            type="button"
             onClick={() => setPaletteOpen(true)}
-            className="ml-auto flex h-9 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 text-[13px] text-fg-subtle transition hover:border-white/15 hover:text-fg-muted sm:w-64 lg:ml-6 lg:w-80"
+            className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-control border border-white/[0.08] bg-white/[0.03] text-ui text-fg-muted transition-colors duration-150 hover:border-white/[0.15] hover:text-fg sm:w-64 sm:justify-start sm:px-3 lg:ml-8 lg:w-80"
             aria-label="Cerca argomenti, tecniche e sezioni"
+            aria-keyshortcuts="Control+K Meta+K"
           >
-            <Search className="h-4 w-4" />
-            <span className="hidden sm:inline">Cerca argomenti, tecniche…</span>
-            <span className="ml-auto hidden items-center gap-1 sm:flex">
-              <Kbd>Ctrl</Kbd>
+            <Search className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="hidden truncate sm:inline">Cerca argomenti, tecniche…</span>
+            <span className="ml-auto hidden items-center gap-1 sm:flex" aria-hidden>
+              <Kbd>{mod}</Kbd>
               <Kbd>K</Kbd>
             </span>
           </button>
 
-          <div className="flex items-center gap-1.5 lg:ml-auto">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-1.5 lg:ml-auto">
             {hydrated && demo && (
-              <Link href="/profilo#dati" className="hidden items-center gap-1.5 rounded-full border border-fuchsia-300/25 bg-fuchsia-400/10 px-2.5 py-1 text-[11px] font-medium text-fuchsia-200 md:flex" title="Stai visualizzando dati dimostrativi">
-                <FlaskConical className="h-3.5 w-3.5" /> Dati demo
+              <Link
+                href="/profilo#dati"
+                className="flex h-10 items-center gap-1.5 rounded-control px-2.5 text-xs font-medium text-fg-muted transition-colors hover:bg-white/[0.05] hover:text-fg"
+                aria-label="Stai usando dati dimostrativi: gestiscili dal profilo"
+              >
+                <FlaskConical className="h-4 w-4" aria-hidden />
+                <span className="hidden md:inline">Dati demo</span>
               </Link>
             )}
             <Link
               href="/flashcard/ripasso"
-              className="relative hidden h-9 items-center gap-2 rounded-xl px-2.5 text-[13px] text-fg-muted transition hover:bg-white/[0.05] hover:text-fg sm:flex"
-              aria-label={`Flashcard in scadenza: ${hydrated ? due.length : 0}`}
+              className="hidden h-10 items-center gap-1.5 rounded-control px-2.5 text-ui text-fg-muted transition-colors hover:bg-white/[0.05] hover:text-fg sm:flex"
+              aria-label={hydrated ? `Ripassa ${due.length} flashcard in scadenza` : "Ripassa le flashcard in scadenza"}
             >
-              <GalleryVerticalEnd className="h-4 w-4" />
-              <span className="font-mono tabular-nums">{hydrated ? due.length : "–"}</span>
+              <GalleryVerticalEnd className="h-4 w-4" aria-hidden />
+              <span className="tabular-nums" aria-hidden>
+                {hydrated ? due.length : "–"}
+              </span>
             </Link>
             <button
+              type="button"
               onClick={() => openProfessor()}
-              className="flex h-9 items-center gap-2 rounded-xl border border-azure-400/25 bg-azure-500/10 px-3 text-[13px] font-medium text-azure-200 transition hover:border-azure-300/50 hover:bg-azure-500/20 hover:shadow-[0_0_20px_-6px_rgba(47,139,255,0.8)]"
+              aria-label="Apri AI Professor"
+              className="flex h-10 items-center gap-2 rounded-control border border-azure-400/25 bg-azure-500/10 px-3 text-ui font-medium text-azure-200 transition-[background-color,border-color,box-shadow] duration-150 hover:border-azure-300/45 hover:bg-azure-500/[0.18] hover:shadow-[0_0_20px_-6px_rgb(61_139_255/0.8)]"
             >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">AI Professor</span>
+              <Sparkles className="h-4 w-4" aria-hidden />
+              <span className="hidden whitespace-nowrap sm:inline">AI Professor</span>
             </button>
           </div>
         </div>

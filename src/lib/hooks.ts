@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useAtlas } from "./store";
+import { useUI } from "./ui-store";
 import { computeMastery, statusOf, type TopicStatus } from "./progress";
 import { allTopicRefs } from "@/data/syllabus";
 import { isDue } from "./srs";
@@ -70,4 +71,44 @@ export function useDueCards() {
   const cards = useAtlas((s) => s.cards);
   const now = useNow(60_000);
   return useMemo(() => cards.filter((c) => !c.suspended && isDue(c.srs, now)), [cards, now]);
+}
+
+/** True when motion should be minimal: the OS setting or the in-app "Riduci animazioni" switch. */
+export function useReducedMotion(): boolean {
+  const setting = useAtlas((s) => s.settings.reduceMotion);
+  const media = useSyncExternalStore(
+    (cb) => {
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      mq.addEventListener("change", cb);
+      return () => mq.removeEventListener("change", cb);
+    },
+    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => false,
+  );
+  return setting || media;
+}
+
+/**
+ * Focus mode while `active`: the shell hides the sidebar, the top bar and the
+ * tab bar (the page renders its own minimal header with an exit). Cleared on unmount.
+ */
+export function useFocusMode(active: boolean) {
+  const setFocusMode = useUI((s) => s.setFocusMode);
+  useEffect(() => {
+    setFocusMode(active);
+    return () => setFocusMode(false);
+  }, [active, setFocusMode]);
+}
+
+/** Asks the browser to confirm before reloading or closing the tab while `active` (e.g. an exam in progress). */
+export function useLeaveGuard(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [active]);
 }

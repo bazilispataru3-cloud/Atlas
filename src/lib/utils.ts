@@ -126,6 +126,11 @@ export function greeting(date = new Date()): string {
   return "Buonasera";
 }
 
+/** Capitalises only the first letter, as Italian wants ("giovedì 20 novembre" → "Giovedì 20 novembre"). */
+export function capFirst(s: string): string {
+  return s ? s.charAt(0).toLocaleUpperCase("it-IT") + s.slice(1) : s;
+}
+
 export function clamp(x: number, min: number, max: number) {
   return Math.min(max, Math.max(min, x));
 }
