@@ -11,6 +11,14 @@ export const RATING_LABELS: Record<Rating, string> = {
   4: "Facile",
 };
 
+/** What each rating means, in the student's words (shown under the label). */
+export const RATING_HINTS: Record<Rating, string> = {
+  1: "Non la ricordavo",
+  2: "Ricordata con fatica",
+  3: "Ricordata",
+  4: "Immediata",
+};
+
 export interface SrsState {
   ease: number;
   /** Interval in days (0 = still in learning step). */
@@ -43,11 +51,17 @@ function addDaysAt(d: Date, days: number) {
   return next;
 }
 
+/**
+ * Days until the next review. 0 = learning step: the card comes back in ten
+ * minutes, i.e. later in the same session. A new card rated "Difficile" stays in
+ * learning (it is not yet known), so "Difficile" and "Buono" never schedule the
+ * same day for a card seen for the first time.
+ */
 export function nextInterval(state: SrsState, rating: Rating): number {
   if (rating === 1) return 0;
   const { reps, interval, ease } = state;
   let days: number;
-  if (rating === 2) days = reps === 0 ? 1 : Math.max(interval + 1, Math.round(interval * 1.2));
+  if (rating === 2) days = reps === 0 ? 0 : Math.max(interval + 1, Math.round(interval * 1.2));
   else if (rating === 3) days = reps === 0 ? 1 : reps === 1 ? 3 : Math.max(interval + 1, Math.round(interval * ease));
   else days = reps === 0 ? 4 : Math.max(interval + 2, Math.round(interval * ease * 1.3));
   return Math.min(MAX_INTERVAL_DAYS, days);
@@ -67,6 +81,17 @@ export function review(state: SrsState, rating: Rating, now = new Date()): SrsSt
       interval: 0,
       reps: 0,
       lapses: state.lapses + 1,
+      due: addMinutes(now, LEARNING_STEP_MIN).toISOString(),
+      last: now.toISOString(),
+    };
+  }
+  if (interval === 0) {
+    // Learning step without a lapse ("Difficile" on a new card): back in ten minutes.
+    return {
+      ease,
+      interval: 0,
+      reps: state.reps,
+      lapses: state.lapses,
       due: addMinutes(now, LEARNING_STEP_MIN).toISOString(),
       last: now.toISOString(),
     };
@@ -91,6 +116,13 @@ export function describeInterval(days: number): string {
   if (days < 30) return `${days} giorni`;
   const months = Math.round(days / 30);
   return months === 1 ? "1 mese" : `${months} mesi`;
+}
+
+/** "rivedi …" phrase for a rating button: when the card will be shown again. */
+export function describeNextReview(days: number): string {
+  if (days === 0) return "in questa sessione";
+  if (days === 1) return "domani";
+  return `tra ${describeInterval(days)}`;
 }
 
 /** Card maturity bucket for statistics. */

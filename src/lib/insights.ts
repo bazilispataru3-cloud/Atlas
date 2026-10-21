@@ -1,11 +1,12 @@
 // Derived analytics for the dashboard and suggestions. Pure functions over store data.
 
 import type { StudySession, QuizResult, FlashCard } from "./store";
-import type { SubjectId } from "./types";
+import type { StudyMode, SubjectId } from "./types";
 import type { TopicState } from "./hooks";
 import { addDays, dayKey, daysBetween, startOfDay, startOfWeek } from "./utils";
 import { topicWeight } from "@/data/syllabus";
 import { hasLesson } from "@/data/lessons";
+import { QUESTIONS } from "@/data/questions";
 
 export function minutesOn(sessions: StudySession[], day: Date): number {
   const key = dayKey(day);
@@ -57,16 +58,32 @@ export function programMastery(states: TopicState[]) {
   return { total, bySubject };
 }
 
+export type SuggestionKind = "flashcard" | "consolida" | "verifica" | "simulazione" | "equilibrio" | "nuovo";
+
 export interface Suggestion {
   id: string;
+  /** What the student will do: picks the icon and the wording around it. */
+  kind: SuggestionKind;
+  /** Sentence-case imperative, shown as is (never lower-cased: it may contain acronyms like DNA). */
   title: string;
   reason: string;
   cta: string;
   href?: string;
-  action?: { type: "study"; topicId: string; mode: "fast" | "deep" | "ultra" };
+  action?: { type: "study"; topicId: string; mode: StudyMode };
   minutes: number;
+  /** Colour hint for the icon only. Gold is premium-only, so no suggestion uses it. */
   tone: "azure" | "gold" | "fast" | "deep" | "ultra" | "warning";
 }
+
+/** Where a suggestion leads: one click from the dashboard, no wizard in between. */
+export function suggestionHref(s: Suggestion): string {
+  if (s.href) return s.href;
+  if (s.action) return `/studio/${s.action.topicId}?mode=${s.action.mode}`;
+  return "/materie";
+}
+
+/** Topics that have at least one question in the bank: only these can be checked with a quiz. */
+const QUIZ_TOPICS = new Set(QUESTIONS.map((q) => q.topicId));
 
 export function suggestions(input: {
   states: TopicState[];
@@ -81,14 +98,16 @@ export function suggestions(input: {
   const daysLeft = daysBetween(now, input.examDate);
 
   if (input.dueCards.length) {
+    const n = input.dueCards.length;
     out.push({
       id: "cards",
-      title: `Ripassa ${input.dueCards.length} flashcard in scadenza`,
-      reason: "La ripetizione dilazionata funziona se rispetti le scadenze: oggi è il momento ottimale.",
-      cta: "Avvia ripasso",
+      kind: "flashcard",
+      title: n === 1 ? "Ripassa la flashcard in scadenza" : `Ripassa ${n} flashcard in scadenza`,
+      reason: "La ripetizione dilazionata funziona se rispetti le scadenze: oggi è il momento giusto per ricordarle.",
+      cta: "Ripassa le flashcard",
       href: "/flashcard/ripasso",
-      minutes: Math.max(5, Math.round(input.dueCards.length * 0.4)),
-      tone: "fast",
+      minutes: Math.max(5, Math.round(n * 0.4)),
+      tone: "azure",
     });
   }
 
@@ -96,6 +115,7 @@ export function suggestions(input: {
   if (weak) {
     out.push({
       id: `weak-${weak.ref.topic.id}`,
+      kind: "consolida",
       title: `Consolida «${weak.ref.topic.title}»`,
       reason: `Padronanza stimata ${Math.round(weak.mastery * 100)}%: i quiz mostrano lacune. Una sessione Deep con analisi degli errori è la scelta più efficace.`,
       cta: "Studia in Deep",
@@ -105,13 +125,14 @@ export function suggestions(input: {
     });
   }
 
-  const untested = input.states.find((s) => s.status === "in-corso");
+  const untested = input.states.find((s) => s.status === "in-corso" && QUIZ_TOPICS.has(s.ref.topic.id));
   if (untested) {
     out.push({
       id: `test-${untested.ref.topic.id}`,
+      kind: "verifica",
       title: `Mettiti alla prova su «${untested.ref.topic.title}»`,
       reason: "Hai studiato l’argomento ma non l’hai ancora verificato: la sola lettura non conta come completamento.",
-      cta: "Quiz rapido",
+      cta: "Fai il quiz",
       href: `/quiz?topic=${untested.ref.topic.id}`,
       minutes: 10,
       tone: "azure",
@@ -119,15 +140,16 @@ export function suggestions(input: {
   }
 
   const lastSim = input.quizResults.filter((r) => r.kind === "simulazione").map((r) => r.date).sort().at(-1);
-  if (daysLeft <= 45 && (!lastSim || daysBetween(lastSim, now) > 6)) {
+  if (daysLeft > 0 && daysLeft <= 45 && (!lastSim || daysBetween(lastSim, now) > 6)) {
     out.push({
       id: "sim",
+      kind: "simulazione",
       title: "Fai una simulazione cronometrata",
       reason: `Mancano ${daysLeft} giorni: allenati con il formato ufficiale (31 quesiti, 50 minuti) per abituarti ai tempi.`,
-      cta: "Apri simulazioni",
+      cta: "Prepara la simulazione",
       href: "/quiz/simulazione",
       minutes: 50,
-      tone: "gold",
+      tone: "azure",
     });
   }
 
@@ -142,26 +164,29 @@ export function suggestions(input: {
       if (next)
         out.push({
           id: `balance-${minSubject}`,
-          title: `Riequilibra: ${next.ref.subject.name}`,
-          reason: `Questa settimana solo il ${Math.round((minMin / total) * 100)}% del tempo è andato a ${next.ref.subject.name}. Alternare le materie riduce l’oblio.`,
+          kind: "equilibrio",
+          title: `Riequilibra con ${next.ref.subject.name}`,
+          reason: `Questa settimana solo il ${Math.round((minMin / total) * 100)}% del tempo è andato a ${next.ref.subject.name}. Alternare le materie riduce l’oblio. Inizia da «${next.ref.topic.title}».`,
           cta: "Studia in Fast",
           action: { type: "study", topicId: next.ref.topic.id, mode: "fast" },
           minutes: 25,
-          tone: "warning",
+          tone: "fast",
         });
     }
   }
 
   const fresh = input.states.find((s) => s.status === "nuovo" && hasLesson(s.ref.topic.id)) ?? input.states.find((s) => s.status === "nuovo");
   if (fresh) {
+    const lesson = hasLesson(fresh.ref.topic.id);
     out.push({
       id: `new-${fresh.ref.topic.id}`,
+      kind: "nuovo",
       title: `Inizia «${fresh.ref.topic.title}»`,
-      reason: `${fresh.ref.subject.name}, Unità ${fresh.ref.unit.number}. ${hasLesson(fresh.ref.topic.id) ? "Lezione completa disponibile con percorso Ultra guidato." : "Obiettivi ufficiali e risorse verificate disponibili."}`,
-      cta: "Inizia in Ultra",
-      action: { type: "study", topicId: fresh.ref.topic.id, mode: "ultra" },
-      minutes: 60,
-      tone: "ultra",
+      reason: `${fresh.ref.subject.name}, unità ${fresh.ref.unit.number}. ${lesson ? "Lezione completa con percorso Ultra guidato, dalla spiegazione al quiz." : "Obiettivi ufficiali e risorse verificate disponibili."}`,
+      cta: lesson ? "Inizia in Ultra" : "Inizia in Deep",
+      action: { type: "study", topicId: fresh.ref.topic.id, mode: lesson ? "ultra" : "deep" },
+      minutes: lesson ? 60 : 50,
+      tone: lesson ? "ultra" : "deep",
     });
   }
 

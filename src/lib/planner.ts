@@ -119,9 +119,15 @@ function interleaveBySubject(inputs: PlanTopicInput[]): PlanTopicInput[] {
 export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): PlanResult {
   const warnings: string[] = [];
   const items: PlanItem[] = [];
-  let seq = 0;
+  // Ids come from the content (day, kind, topics), so re-planning keeps the same
+  // id for the same activity and the student's check marks survive.
+  const usedIds = new Set<string>();
   const push = (item: Omit<PlanItem, "id">) => {
-    items.push({ ...item, id: `${item.date}-${item.kind}-${seq++}` });
+    const base = planItemKey(item).replace(/[|]+/g, "-").replace(/-+$/, "");
+    let id = base;
+    for (let n = 2; usedIds.has(id); n++) id = `${base}-${n}`;
+    usedIds.add(id);
+    items.push({ ...item, id });
   };
 
   const start = startOfDay(config.startDate);
@@ -347,15 +353,35 @@ export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): Plan
   };
 }
 
-export const KIND_META: Record<PlanItemKind, { label: string; tone: string }> = {
-  apprendimento: { label: "Studio", tone: "azure" },
-  esercizi: { label: "Esercizi", tone: "phys" },
-  ripasso: { label: "Ripasso", tone: "fast" },
-  recupero: { label: "Recupero", tone: "warning" },
-  interleaving: { label: "Interleaving", tone: "ultra" },
-  simulazione: { label: "Simulazione", tone: "gold" },
-  rielaborazione: { label: "Cornell", tone: "deep" },
-  pausa: { label: "Pausa", tone: "muted" },
-  riposo: { label: "Riposo", tone: "muted" },
-  esame: { label: "Esame", tone: "danger" },
+/** Identity of an activity independent of its id: same day, kind, topics and subject. */
+export function planItemKey(it: Pick<PlanItem, "date" | "kind" | "topicIds" | "subject">): string {
+  return [it.date, it.kind, it.subject ?? "", it.topicIds.join("+")].join("|");
+}
+
+/**
+ * Check marks to carry over when a plan is replaced from `fromDate` on: the ids
+ * of the new activities that match an activity already marked as done.
+ */
+export function carryOverDone(oldItems: PlanItem[], done: Iterable<string>, newItems: PlanItem[], fromDate: string): string[] {
+  const doneSet = new Set(done);
+  const doneKeys = new Set(oldItems.filter((i) => i.date >= fromDate && doneSet.has(i.id)).map(planItemKey));
+  return newItems.filter((i) => !doneSet.has(i.id) && doneKeys.has(planItemKey(i))).map((i) => i.id);
+}
+
+/**
+ * Display families: few, clearly different colours (each always shown with its
+ * label): study, recovery, review, practice (exercises, mixed practice and
+ * simulations), Cornell and rest in neutral grey, the exam in red.
+ */
+export const KIND_META: Record<PlanItemKind, { label: string; tone: string; family: string }> = {
+  apprendimento: { label: "Studio", tone: "azure", family: "Studio" },
+  esercizi: { label: "Esercizi", tone: "ultra", family: "Pratica" },
+  ripasso: { label: "Ripasso", tone: "fast", family: "Ripasso" },
+  recupero: { label: "Recupero", tone: "warning", family: "Recupero" },
+  interleaving: { label: "Pratica mista", tone: "ultra", family: "Pratica" },
+  simulazione: { label: "Simulazione", tone: "ultra", family: "Pratica" },
+  rielaborazione: { label: "Cornell", tone: "muted", family: "Cornell e riposo" },
+  pausa: { label: "Pausa", tone: "muted", family: "Cornell e riposo" },
+  riposo: { label: "Riposo", tone: "muted", family: "Cornell e riposo" },
+  esame: { label: "Esame", tone: "danger", family: "Esame" },
 };
