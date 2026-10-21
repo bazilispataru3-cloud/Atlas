@@ -2,21 +2,22 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Brain, Compass, Info, Play, Scale, Sparkles } from "lucide-react";
-import type { StudyMode } from "@/lib/types";
-import { MODE_INFO, TECHNIQUES, type Goal } from "@/data/academy";
-import { allTopicRefs, getTopicRef, SUBJECTS } from "@/data/syllabus";
+import { BookOpenCheck, Clock, Info, Play, Search } from "lucide-react";
+import type { StudyMode, SubjectId } from "@/lib/types";
+import { TECHNIQUES, type Goal } from "@/data/academy";
+import { SUBJECTS } from "@/data/syllabus";
 import { hasLesson } from "@/data/lessons";
 import { ModeCard } from "./mode-card";
-import { MODE_SEQUENCE, STEP_LABEL, ULTRA_RATIONALE, ULTRA_SEQUENCE, ultraKind, type UltraKind } from "./steps";
-import { Badge, Button, Card, PageHeader, SectionTitle, Select } from "@/components/ui/primitives";
-import { MODE_TONE, TONE } from "@/components/ui/tone";
+import { SUBJECT_ICON } from "./start-study-modal";
+import { MODE_META, MODES, nextTopic, sequenceFor, STEP_LABEL, ULTRA_RATIONALE, type UltraKind } from "./paths";
+import { Button, EmptyState, PageHeader, SectionTitle, Segmented, Skeleton } from "@/components/ui/primitives";
+import { MODE_TONE, SUBJECT_TONE, TONE } from "@/components/ui/tone";
+import { STATUS_LABEL } from "@/lib/progress";
 import { useUI } from "@/lib/ui-store";
 import { useAtlas } from "@/lib/store";
-import { useHydrated } from "@/lib/hooks";
-import { cn, fmt, DAY_MS } from "@/lib/utils";
-
-const MODES: StudyMode[] = ["fast", "deep", "ultra"];
+import { useHydrated, useTopicStates, type TopicState } from "@/lib/hooks";
+import { fmt, DAY_MS } from "@/lib/utils";
+import { cx } from "./cx";
 
 /** How well each mode serves a goal. Deliberately relative: no mode is "best" in general. */
 const FIT: { goal: string; note: string; fit: Record<StudyMode, 0 | 1 | 2> }[] = [
@@ -54,244 +55,298 @@ const FIT: { goal: string; note: string; fit: Record<StudyMode, 0 | 1 | 2> }[] =
 
 const FIT_LABEL = ["Poco adatta", "Utile", "Indicata"] as const;
 
-const KIND_EXAMPLE: Record<UltraKind, { label: string; topicId: string }> = {
-  meccanistico: { label: "Biologia: meccanismi e sequenze", topicId: "bio-replicazione-dna" },
-  misto: { label: "Chimica: concetti e calcoli", topicId: "chim-tamponi" },
-  quantitativo: { label: "Fisica: leggi e problemi", topicId: "fis-idrodinamica" },
-};
+/** Ultra follows the subject: the variant of each one. */
+const KIND_OF: Record<SubjectId, UltraKind> = { biologia: "meccanistico", chimica: "misto", fisica: "quantitativo" };
+
+const isStudyMode = (m: string): m is StudyMode => m === "fast" || m === "deep" || m === "ultra";
 
 function FitDots({ n, mode }: { n: 0 | 1 | 2; mode: StudyMode }) {
   return (
-    <span className="inline-flex items-center gap-2" title={FIT_LABEL[n]}>
+    <span className="inline-flex items-center gap-2">
       <span className="flex gap-1" aria-hidden>
         {[0, 1, 2].map((i) => (
-          <span key={i} className={cn("h-2 w-2 rounded-full", i <= n ? TONE[MODE_TONE[mode]].dot : "bg-white/10")} />
+          <span key={i} className={cx("h-2 w-2 rounded-full", i <= n ? TONE[MODE_TONE[mode]].dot : "bg-white/10")} />
         ))}
       </span>
-      <span className="text-[12px] text-fg-muted">{FIT_LABEL[n]}</span>
+      <span className={cx("text-ui", n === 2 ? "text-fg" : "text-fg-muted")}>{FIT_LABEL[n]}</span>
     </span>
   );
 }
 
-function Path({ steps, tone }: { steps: string[]; tone: StudyMode }) {
+function ModeName({ mode }: { mode: StudyMode }) {
+  const Icon = MODE_META[mode].icon;
   return (
-    <ol className="relative space-y-2.5 pl-6">
-      <span className="absolute bottom-2 left-[9px] top-2 w-px bg-white/10" aria-hidden />
-      {steps.map((s, i) => (
-        <li key={s} className="relative flex items-center gap-3 text-[13.5px] text-fg-muted">
-          <span className={cn("absolute -left-6 grid h-[19px] w-[19px] place-items-center rounded-full border bg-ink-900 font-mono text-[10px]", TONE[MODE_TONE[tone]].border, TONE[MODE_TONE[tone]].text)}>
-            {i + 1}
-          </span>
-          {s}
-        </li>
-      ))}
-    </ol>
+    <span className="inline-flex items-center gap-1.5">
+      <Icon className={cx("h-3.5 w-3.5", TONE[MODE_TONE[mode]].text)} aria-hidden />
+      {MODE_META[mode].name}
+    </span>
   );
 }
+
+/** Short time for the usage tiles: "45 min", "6,1 h". */
+const shortTime = (min: number) => (min < 60 ? `${Math.round(min)} min` : `${fmt.hours(min)} h`);
 
 export function ModesPage() {
   const openStartStudy = useUI((s) => s.openStartStudy);
   const sessions = useAtlas((s) => s.sessions);
   const hydrated = useHydrated();
+  const states = useTopicStates();
   const [mode, setMode] = useState<StudyMode>("deep");
-  const [ultraTopic, setUltraTopic] = useState("bio-mitocondri");
-  const ultraRef = getTopicRef(ultraTopic);
-  const kind = ultraRef ? ultraKind(ultraRef) : "meccanistico";
+  const [ultraSubject, setUltraSubject] = useState<SubjectId>("biologia");
+  const kind = KIND_OF[ultraSubject];
+  const meta = MODE_META[mode];
+  const seq = sequenceFor(mode, kind);
+  const techniques = TECHNIQUES.filter((t) => t.modes.includes(mode));
 
   const usage = useMemo(() => {
     const since = Date.now() - 30 * DAY_MS;
     const out: Record<StudyMode, { minutes: number; count: number }> = { fast: { minutes: 0, count: 0 }, deep: { minutes: 0, count: 0 }, ultra: { minutes: 0, count: 0 } };
     if (!hydrated) return out;
     for (const s of sessions) {
-      if ((s.mode === "fast" || s.mode === "deep" || s.mode === "ultra") && new Date(s.start).getTime() >= since) {
+      if (isStudyMode(s.mode) && new Date(s.start).getTime() >= since) {
         out[s.mode].minutes += s.minutes;
         out[s.mode].count += 1;
       }
     }
     return out;
   }, [sessions, hydrated]);
+  const usageTotal = usage.fast.count + usage.deep.count + usage.ultra.count;
 
-  const goalsForMode = (m: StudyMode) => {
+  // One-click starts: topics with a complete lesson (the modes only differ there). The one studied
+  // last, then the next one per subject; Ultra shows the subject chosen above, since its path follows it.
+  const suggestions = useMemo(() => {
+    const withLesson = states.filter((s) => hasLesson(s.ref.topic.id) && (mode !== "ultra" || s.ref.subject.id === ultraSubject));
+    const out: { st: TopicState; reason: string }[] = [];
+    const last = [...sessions].filter((s) => isStudyMode(s.mode) && hasLesson(s.topicId)).sort((a, b) => b.start.localeCompare(a.start))[0];
+    const lastState = last && withLesson.find((x) => x.ref.topic.id === last.topicId);
+    if (lastState) out.push({ st: lastState, reason: "Studiato per ultimo" });
+    const subjects = mode === "ultra" ? SUBJECTS.filter((s) => s.id === ultraSubject) : SUBJECTS;
+    for (const subj of subjects) {
+      const pool = withLesson.filter((x) => x.ref.subject.id === subj.id && !out.some((o) => o.st.ref.topic.id === x.ref.topic.id));
+      const nx = nextTopic(pool);
+      if (nx) out.push({ st: nx, reason: `Prossimo in ${subj.name}` });
+      else {
+        const weakest = [...pool].sort((a, b) => a.mastery - b.mastery)[0];
+        if (weakest) out.push({ st: weakest, reason: `Da ripassare in ${subj.name}` });
+      }
+    }
+    return out.slice(0, 4);
+  }, [states, sessions, mode, ultraSubject]);
+
+  const goals = useMemo(() => {
     const counts = new Map<Goal, number>();
-    for (const t of TECHNIQUES) if (t.modes.includes(m)) for (const g of t.goals) counts.set(g, (counts.get(g) ?? 0) + 1);
+    for (const t of techniques) for (const g of t.goals) counts.set(g, (counts.get(g) ?? 0) + 1);
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g);
-  };
-
-  const sequence = mode === "ultra" ? ULTRA_SEQUENCE[kind] : MODE_SEQUENCE[mode];
-  const info = MODE_INFO[mode];
-  const techniques = TECHNIQUES.filter((t) => t.modes.includes(mode));
+  }, [techniques]);
 
   return (
-    <div className="pb-16">
+    <div className="pb-8">
       <PageHeader
-        eyebrow={<span className="flex items-center gap-2"><Compass className="h-3.5 w-3.5" /> Study Modes</span>}
-        title={<>Tre modi di studiare. <span className="italic text-fg-muted">Scegli in base all’obiettivo.</span></>}
-        description="Fast, Deep e Ultra non sono livelli di difficoltà: sono percorsi diversi per obiettivi diversi. Nessuna modalità è sempre superiore alle altre — dipende da quanto tempo hai, da cosa devi saper fare e da quanto conosci già l’argomento."
-        actions={
-          <Button variant="primary" size="lg" onClick={() => openStartStudy({ mode })}>
-            <Play className="h-4 w-4 fill-current" /> Inizia in {info.name}
-          </Button>
-        }
+        title="Tre modi di studiare"
+        description="Fast, Deep e Ultra non sono livelli di difficoltà: cambiano quanto va in profondità il percorso e quali strumenti usa. Scegli in base al tempo che hai e a cosa devi saper fare; poi scegli l’argomento e parti."
       />
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-3">
+      <div role="radiogroup" aria-label="Modalità di studio" className="mt-8 grid gap-2.5 md:grid-cols-3 md:gap-4">
         {MODES.map((m) => (
-          <ModeCard key={m} mode={m} selected={m === mode} onSelect={() => setMode(m)} />
+          <ModeCard key={m} mode={m} selected={m === mode} onSelect={() => setMode(m)} layout="responsive" name="modalita" ultraKind={kind} animateArt headingLevel={2} />
         ))}
       </div>
 
-      {/* Selected mode detail */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1.1fr_1fr]">
-        <Card className="p-6">
-          <SectionTitle
-            title={<>Il percorso {info.name}</>}
-            icon={<Sparkles className="h-4 w-4" />}
-            action={<Badge tone={MODE_TONE[mode]}>{info.time}</Badge>}
-          />
+      {/* The chosen mode: its path and where to start */}
+      <section aria-labelledby="mode-detail" className="card mt-5 grid gap-x-12 gap-y-8 p-5 sm:p-7 lg:grid-cols-2">
+        <div>
+          <h2 id="mode-detail" className="flex items-center gap-2.5 font-display text-2xl leading-tight text-fg sm:text-3xl">
+            <meta.icon className={cx("h-5 w-5 shrink-0", TONE[MODE_TONE[mode]].text)} aria-hidden />
+            Il percorso {meta.name}
+          </h2>
+          <p className="mt-1.5 text-sm text-fg-muted">
+            {seq.length} passi, {meta.time}
+          </p>
+
           {mode === "ultra" && (
-            <div className="mb-4 rounded-2xl border border-fuchsia-300/20 bg-fuchsia-400/[0.05] p-3.5 text-[13px] leading-relaxed text-fg-muted">
-              Il percorso Ultra cambia con l’argomento. Ora è mostrato per <strong className="text-fg">{ultraRef?.topic.title}</strong> ({kind}).
-              <div className="mt-2.5">
-                <Select value={ultraTopic} onChange={(e) => setUltraTopic(e.target.value)} aria-label="Argomento per il percorso Ultra" className="h-9 text-[13px]">
-                  {SUBJECTS.map((s) => (
-                    <optgroup key={s.id} label={s.name}>
-                      {allTopicRefs()
-                        .filter((r) => r.subject.id === s.id)
-                        .map((r) => (
-                          <option key={r.topic.id} value={r.topic.id}>
-                            {r.topic.title}
-                            {hasLesson(r.topic.id) ? " ★" : ""}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </Select>
+            <div className="mt-5">
+              <div className="mb-2 text-ui text-fg-muted" id="ultra-subject">
+                Il percorso Ultra cambia con la materia
               </div>
+              <Segmented
+                ariaLabel="Materia del percorso Ultra"
+                value={ultraSubject}
+                onChange={setUltraSubject}
+                options={SUBJECTS.map((s) => ({ value: s.id, label: s.name }))}
+              />
+              <p className="mt-3 max-w-[60ch] text-ui leading-relaxed text-fg-muted">{ULTRA_RATIONALE[kind]}</p>
             </div>
           )}
-          <Path steps={sequence.map((k) => STEP_LABEL[k])} tone={mode} />
-          {mode === "ultra" && <p className="mt-4 text-[13px] leading-relaxed text-fg-subtle">{ULTRA_RATIONALE[kind]}</p>}
-          <div className="mt-5 flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => openStartStudy(mode === "ultra" ? { mode, topicId: ultraTopic, subject: ultraRef?.subject.id } : { mode })}>
-              <Play className="h-4 w-4 fill-current" /> Scegli argomento e inizia
-            </Button>
-            {mode === "ultra" && ultraRef && (
-              <Button variant="secondary" className="h-auto min-h-10 whitespace-normal py-2 text-left" href={`/studio/${ultraTopic}?mode=ultra`}>
-                Apri il percorso su «{ultraRef.topic.title}» <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          <p className="mt-4 text-[12px] leading-relaxed text-fg-subtle">
-            ★ = argomento con lezione completa ATLAS. Per gli altri argomenti la sessione usa obiettivi ufficiali, risorse verificate, spiegazione dell’AI Professor (se configurato), recall e quiz.
-          </p>
-        </Card>
 
-        <div className="space-y-4">
-          <Card className="p-6">
-            <SectionTitle title="Tecniche usate in questa modalità" icon={<Brain className="h-4 w-4" />} />
-            <div className="grid gap-2 sm:grid-cols-2">
-              {techniques.map((t) => (
-                <Link key={t.id} href={`/academy/${t.id}`} className="group rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3 transition hover:border-white/15 hover:bg-white/[0.04]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[13.5px] font-medium text-fg">{t.name}</span>
-                    <ArrowRight className="h-3.5 w-3.5 text-fg-subtle transition group-hover:translate-x-0.5 group-hover:text-fg" />
-                  </div>
-                  <div className="mt-1 text-[12px] text-fg-subtle">Evidenza: {t.evidence.level}</div>
-                </Link>
-              ))}
-            </div>
-            <p className="mt-3 text-[12px] text-fg-subtle">Obiettivi principali: {goalsForMode(mode).join(", ")}.</p>
-          </Card>
-          <Card className="p-6">
-            <SectionTitle title="Le tue sessioni (ultimi 30 giorni)" />
-            <div className="grid grid-cols-3 gap-3">
-              {MODES.map((m) => (
-                <div key={m} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-3">
-                  <div className={cn("text-[11px] font-semibold uppercase tracking-[0.14em]", TONE[MODE_TONE[m]].text)}>{MODE_INFO[m].name.split(" ")[0]}</div>
-                  <div className="mt-1 whitespace-nowrap font-mono text-lg text-fg">{fmt.minutes(usage[m].minutes)}</div>
-                  <div className="text-[12px] text-fg-subtle">{usage[m].count} {usage[m].count === 1 ? "sessione" : "sessioni"}</div>
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[12px] leading-relaxed text-fg-subtle">Conta solo il tempo con la scheda visibile e il timer non in pausa.</p>
-          </Card>
+          <ol className="relative mt-6 space-y-1">
+            <span className="absolute bottom-3 left-[11px] top-3 w-px bg-white/[0.09]" aria-hidden />
+            {seq.map((k, i) => (
+              <li key={k} className="relative flex min-h-9 items-center gap-3 text-sm text-fg-reading">
+                <span className="relative grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/[0.14] bg-ink-800 text-xs font-medium tabular-nums text-fg-muted" aria-hidden>
+                  {i + 1}
+                </span>
+                <span>
+                  <span className="sr-only">Passo {i + 1}: </span>
+                  {STEP_LABEL[k]}
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
-      </div>
+
+        <div className="lg:border-l lg:border-white/[0.06] lg:pl-12">
+          <h3 className="text-base font-semibold text-fg">Inizia in {meta.name}</h3>
+          <p className="mt-1 text-ui text-fg-muted">Argomenti con lezione completa: un tocco e la sessione parte.</p>
+          <ul className="mt-4 space-y-2">
+            {!hydrated
+              ? [0, 1, 2].map((i) => (
+                  <li key={i}>
+                    <Skeleton className="h-[3.75rem] w-full" />
+                  </li>
+                ))
+              : suggestions.map(({ st, reason }) => {
+                  const Icon = SUBJECT_ICON[st.ref.subject.id];
+                  return (
+                    <li key={st.ref.topic.id}>
+                      <Link
+                        href={`/studio/${st.ref.topic.id}?mode=${mode}`}
+                        className="group flex min-h-[3.75rem] items-center gap-3 rounded-control border border-white/[0.07] bg-white/[0.02] px-3.5 py-2.5 transition-colors duration-150 hover:border-white/[0.16] hover:bg-white/[0.045]"
+                      >
+                        <Icon className={cx("h-4 w-4 shrink-0", TONE[SUBJECT_TONE[st.ref.subject.id]].text)} aria-hidden />
+                        <span className="min-w-0 flex-1">
+                          <span className="sr-only">Inizia in {meta.name}: </span>
+                          <span className="block text-sm font-medium leading-snug text-fg">{st.ref.topic.title}</span>
+                          <span className="mt-0.5 block text-xs text-fg-muted">
+                            {reason}, {STATUS_LABEL[st.status].toLowerCase()}
+                          </span>
+                        </span>
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full border border-azure-400/30 text-azure-300 transition-colors group-hover:border-azure-400/60 group-hover:bg-azure-500/[0.12]" aria-hidden>
+                          <Play className="h-3.5 w-3.5 fill-current" />
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+          </ul>
+          <Button variant="secondary" className="mt-3 w-full sm:w-auto" onClick={() => openStartStudy({ mode, subject: mode === "ultra" ? ultraSubject : undefined })}>
+            <Search className="h-4 w-4" aria-hidden /> Scegli un altro argomento
+          </Button>
+          <p className="mt-4 flex gap-2 text-xs leading-relaxed text-fg-muted">
+            <BookOpenCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+            Gli argomenti senza lezione completa seguono un percorso guidato unico: obiettivi ufficiali, risorse, spiegazione dell’AI Professor, richiamo e quiz.
+          </p>
+        </div>
+
+        <div className="border-t border-white/[0.06] pt-6 lg:col-span-2">
+          <h3 className="text-sm font-semibold text-fg">Le tecniche di questa modalità</h3>
+          <ul className="mt-2 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
+            {techniques.map((t) => (
+              <li key={t.id} className="border-b border-white/[0.05]">
+                <Link href={`/academy/${t.id}`} className="flex min-h-12 items-center justify-between gap-3 py-2 text-sm text-fg transition-colors hover:text-azure-200">
+                  <span className="underline decoration-white/0 underline-offset-4 transition-[text-decoration-color] group-hover:decoration-white/30">{t.name}</span>
+                  <span className="shrink-0 text-xs text-fg-muted">Evidenza {t.evidence.level}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-xs leading-relaxed text-fg-muted">Servono soprattutto a: {goals.join(", ")}.</p>
+        </div>
+      </section>
 
       {/* Goal matrix */}
-      <section className="mt-12">
-        <SectionTitle title="Quale modalità per quale obiettivo" icon={<Scale className="h-4 w-4" />} />
-        <div className="space-y-3 md:hidden">
+      <section className="mt-14" aria-labelledby="fit-title">
+        <SectionTitle id="fit-title" title="Quale modalità per quale obiettivo" description="Indicazioni pratiche, non una classifica." />
+        <ul className="divide-y divide-white/[0.06] border-y border-white/[0.06] md:hidden">
           {FIT.map((row) => (
-            <Card key={row.goal} className="p-4">
-              <div className="text-[14px] font-medium text-fg">{row.goal}</div>
-              <div className="mt-1 text-[12.5px] leading-relaxed text-fg-subtle">{row.note}</div>
-              <div className="mt-3 space-y-1.5">
+            <li key={row.goal} className="py-4">
+              <div className="text-sm font-medium text-fg">{row.goal}</div>
+              <p className="mt-1 text-ui leading-relaxed text-fg-muted">{row.note}</p>
+              <dl className="mt-3 space-y-1.5">
                 {MODES.map((m) => (
-                  <div key={m} className="flex items-center justify-between gap-3">
-                    <span className={cn("text-[12.5px] font-medium", TONE[MODE_TONE[m]].text)}>{MODE_INFO[m].name}</span>
-                    <FitDots n={row.fit[m]} mode={m} />
+                  <div key={m} className="flex items-center justify-between gap-3 text-ui">
+                    <dt className="text-fg-muted">
+                      <ModeName mode={m} />
+                    </dt>
+                    <dd>
+                      <FitDots n={row.fit[m]} mode={m} />
+                    </dd>
                   </div>
                 ))}
-              </div>
-            </Card>
+              </dl>
+            </li>
           ))}
-        </div>
-        <Card className="hidden overflow-hidden md:block">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
-              <thead>
-                <tr className="border-b border-white/[0.06] text-[11.5px] uppercase tracking-[0.14em] text-fg-subtle">
-                  <th className="px-5 py-3 font-medium">Obiettivo</th>
+        </ul>
+        <div className="card hidden overflow-hidden md:block">
+          <table className="w-full text-left">
+            <caption className="sr-only">Adattezza di Fast, Deep e Ultra a ciascun obiettivo di studio</caption>
+            <thead>
+              <tr className="border-b border-white/[0.06] text-ui text-fg-muted">
+                <th scope="col" className="px-5 py-3 font-medium">
+                  Obiettivo
+                </th>
+                {MODES.map((m) => (
+                  <th key={m} scope="col" className="w-[17%] px-4 py-3 font-medium text-fg">
+                    <ModeName mode={m} />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {FIT.map((row) => (
+                <tr key={row.goal} className="border-b border-white/[0.04] align-top last:border-0">
+                  <th scope="row" className="px-5 py-4 text-left font-normal">
+                    <div className="text-sm font-medium text-fg">{row.goal}</div>
+                    <div className="mt-1 max-w-[52ch] text-ui leading-relaxed text-fg-muted">{row.note}</div>
+                  </th>
                   {MODES.map((m) => (
-                    <th key={m} className={cn("px-4 py-3 font-medium", TONE[MODE_TONE[m]].text)}>{MODE_INFO[m].name}</th>
+                    <td key={m} className="px-4 py-4">
+                      <FitDots n={row.fit[m]} mode={m} />
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {FIT.map((row) => (
-                  <tr key={row.goal} className="border-b border-white/[0.04] align-top last:border-0">
-                    <td className="px-5 py-4">
-                      <div className="text-[14px] font-medium text-fg">{row.goal}</div>
-                      <div className="mt-1 max-w-md text-[12.5px] leading-relaxed text-fg-subtle">{row.note}</div>
-                    </td>
-                    {MODES.map((m) => (
-                      <td key={m} className="px-4 py-4">
-                        <FitDots n={row.fit[m]} mode={m} />
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-        <p className="mt-3 flex gap-2 text-[12.5px] leading-relaxed text-fg-subtle">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Indicazioni pratiche, non una classifica. Le tecniche con l’evidenza più solida in letteratura (recupero attivo e ripetizione dilazionata; Dunlosky et al., 2013) sono presenti in tutte e tre le modalità e nel ripasso flashcard.
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 flex max-w-[80ch] gap-2 text-xs leading-relaxed text-fg-muted">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          Le tecniche con l’evidenza più solida in letteratura (recupero attivo e ripetizione dilazionata; Dunlosky et al., 2013) sono presenti in tutte e tre le modalità e nel ripasso flashcard.
         </p>
       </section>
 
-      {/* Ultra kinds */}
-      <section className="mt-12">
-        <SectionTitle title="Come Ultra costruisce il percorso" icon={<Brain className="h-4 w-4" />} />
-        <div className="grid gap-4 lg:grid-cols-3">
-          {(Object.keys(ULTRA_SEQUENCE) as UltraKind[]).map((k) => (
-            <Card key={k} className="flex flex-col p-5">
-              <Badge tone="ultra" className="self-start capitalize">{k}</Badge>
-              <div className="mt-3 text-[15px] font-semibold text-fg">{KIND_EXAMPLE[k].label}</div>
-              <p className="mt-2 text-[13px] leading-relaxed text-fg-muted">{ULTRA_RATIONALE[k]}</p>
-              <div className="mt-4">
-                <Path steps={ULTRA_SEQUENCE[k].map((s) => STEP_LABEL[s])} tone="ultra" />
+      {/* Personal usage */}
+      <section className="mt-14" aria-labelledby="usage-title">
+        <SectionTitle id="usage-title" title="Le tue sessioni negli ultimi 30 giorni" description="Conta solo il tempo con la scheda visibile e il timer non in pausa." />
+        {!hydrated ? (
+          <Skeleton className="h-24 w-full" />
+        ) : usageTotal === 0 ? (
+          <EmptyState
+            icon={<Clock />}
+            title="Ancora nessuna sessione"
+            description="Quando studi in Fast, Deep o Ultra, qui trovi il tempo dedicato a ciascuna modalità."
+            action={
+              <Button variant="secondary" onClick={() => openStartStudy({ mode })}>
+                <Play className="h-4 w-4 fill-current" aria-hidden /> Inizia in {meta.name}
+              </Button>
+            }
+          />
+        ) : (
+          <dl className="card grid grid-cols-3 divide-x divide-white/[0.06]">
+            {MODES.map((m) => (
+              <div key={m} className="min-w-0 px-3 py-4 sm:px-6">
+                <dt className="text-ui text-fg-muted">
+                  <ModeName mode={m} />
+                </dt>
+                <dd className="mt-1.5">
+                  <span className="block text-xl font-semibold leading-tight tabular-nums text-fg sm:text-2xl">{shortTime(usage[m].minutes)}</span>
+                  <span className="mt-0.5 block text-xs text-fg-muted">
+                    {usage[m].count} {usage[m].count === 1 ? "sessione" : "sessioni"}
+                  </span>
+                </dd>
               </div>
-              <div className="mt-auto pt-5">
-                <Button variant="secondary" size="sm" className="h-auto min-h-8 whitespace-normal py-1.5 text-left" href={`/studio/${KIND_EXAMPLE[k].topicId}?mode=ultra`}>
-                  Prova con «{getTopicRef(KIND_EXAMPLE[k].topicId)?.topic.title}» <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+            ))}
+          </dl>
+        )}
       </section>
     </div>
   );

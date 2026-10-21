@@ -16,8 +16,9 @@ import { programMastery } from "@/lib/insights";
 import { STATUS_LABEL } from "@/lib/progress";
 import type { StudyMode, SubjectId, TopicRef } from "@/lib/types";
 import { SUBJECT_TONE, TONE } from "@/components/ui/tone";
-import { cn } from "@/lib/utils";
+
 import { norm } from "@/lib/search";
+import { cx } from "./cx";
 
 export const SUBJECT_ICON = { biologia: Microscope, chimica: FlaskConical, fisica: Atom } as const;
 
@@ -68,12 +69,12 @@ function TopicRow({
       data-topic-row
       onClick={onChoose}
       aria-current={selected ? "true" : undefined}
-      className={cn(
+      className={cx(
         "flex min-h-12 w-full items-start gap-3 rounded-control border px-3 py-2.5 text-left transition-colors duration-150",
         selected ? "border-azure-400/50 bg-azure-500/[0.1]" : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.14] hover:bg-white/[0.04]",
       )}
     >
-      <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", STATUS_FILL[state?.status ?? "nuovo"], (state?.status ?? "nuovo") === "nuovo" && "bg-white/25")} aria-hidden />
+      <span className={cx("mt-1.5 h-2 w-2 shrink-0 rounded-full", STATUS_FILL[state?.status ?? "nuovo"], (state?.status ?? "nuovo") === "nuovo" && "bg-white/25")} aria-hidden />
       <span className="min-w-0 flex-1">
         <span className="block text-sm leading-snug text-fg">{t.topic.title}</span>
         <span className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-subtle">
@@ -249,7 +250,7 @@ export function StartStudyModal() {
           <div className="hidden min-w-0 flex-1 items-center justify-center gap-2 text-ui text-fg-muted md:flex">
             <span className="flex items-center gap-1" aria-hidden>
               {[1, 2].map((n) => (
-                <span key={n} className={cn("h-1 rounded-full transition-[width,background-color] duration-200", n === stepNo ? "w-5 bg-azure-400" : "w-2.5 bg-white/15")} />
+                <span key={n} className={cx("h-1 rounded-full transition-[width,background-color] duration-200", n === stepNo ? "w-5 bg-azure-400" : "w-2.5 bg-white/15")} />
               ))}
             </span>
             <span>Passo {stepNo} di 2</span>
@@ -282,7 +283,7 @@ export function StartStudyModal() {
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={onSearchKey}
                 data-autofocus={coarse ? undefined : ""}
-                placeholder="Cerca un argomento in tutte le materie"
+                placeholder="Cerca un argomento"
                 aria-label="Cerca un argomento in tutte le materie"
                 aria-describedby="start-search-hint"
                 className="h-11 w-full rounded-control border border-white/[0.1] bg-white/[0.03] pl-10 pr-10 text-base text-fg placeholder:text-fg-subtle transition-[border-color,box-shadow] duration-150 hover:border-white/[0.16] focus:border-azure-400/70 focus:outline-none focus:ring-[3px] focus:ring-azure-500/25 sm:text-sm [&::-webkit-search-cancel-button]:hidden"
@@ -337,14 +338,17 @@ export function StartStudyModal() {
                         aria-checked={sel}
                         tabIndex={sel ? 0 : -1}
                         onClick={() => setSubject(s.id)}
-                        className={cn(
+                        className={cx(
                           "flex min-h-11 flex-col items-start rounded-control border px-3 py-2.5 text-left transition-colors duration-150",
-                          sel ? cn(TONE[tone].border, "bg-white/[0.05]") : "border-white/[0.07] bg-white/[0.02] hover:border-white/[0.14]",
+                          sel ? cx(TONE[tone].border, "bg-white/[0.05]") : "border-white/[0.07] bg-white/[0.02] hover:border-white/[0.14]",
                         )}
                       >
                         <span className="flex w-full items-center gap-2">
-                          <Icon className={cn("h-4 w-4 shrink-0", TONE[tone].text)} aria-hidden />
-                          <span className="truncate text-sm font-medium text-fg">{s.name}</span>
+                          <Icon className={cx("h-4 w-4 shrink-0", TONE[tone].text)} aria-hidden />
+                          <span className="truncate text-sm font-medium text-fg">
+                            <span className="sm:hidden">{s.name.split(" e ")[0]}</span>
+                            <span className="hidden sm:inline">{s.name}</span>
+                          </span>
                           <span className="ml-auto hidden text-xs tabular-nums text-fg-muted sm:inline">{Math.round(m * 100)}%</span>
                         </span>
                         <ProgressBar value={m} tone={tone} size="sm" className="mt-2" label={`Padronanza di ${s.name}: ${Math.round(m * 100)}%`} />
@@ -401,7 +405,7 @@ export function StartStudyModal() {
             <div className="inset-panel mb-4 flex items-center gap-3 px-3.5 py-3">
               {(() => {
                 const Icon = SUBJECT_ICON[topicRef.subject.id];
-                return <Icon className={cn("h-4 w-4 shrink-0", TONE[SUBJECT_TONE[topicRef.subject.id]].text)} aria-hidden />;
+                return <Icon className={cx("h-4 w-4 shrink-0", TONE[SUBJECT_TONE[topicRef.subject.id]].text)} aria-hidden />;
               })()}
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium leading-snug text-fg">{topicRef.topic.title}</div>

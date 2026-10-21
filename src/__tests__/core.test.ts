@@ -12,6 +12,11 @@ describe("spaced repetition (SM-2 derived)", () => {
 
   it("schedules a new card at 1 / 4 days and lapses it to a 10-minute step", () => {
     const s = newSrsState(t0);
+    // "Difficile" on a new card keeps it in learning (back in this session), so it never equals "Buono".
+    expect(nextInterval(s, 2)).toBe(0);
+    const hard = review(s, 2, t0);
+    expect(hard.lapses).toBe(0);
+    expect(new Date(hard.due).getTime() - t0.getTime()).toBe(10 * 60_000);
     expect(nextInterval(s, 3)).toBe(1);
     expect(nextInterval(s, 4)).toBe(4);
     const again = review(s, 1, t0);

@@ -1,10 +1,11 @@
 "use client";
 
 import { Children, cloneElement, isValidElement, useId, useMemo, type ReactElement, type ReactNode } from "react";
-import type { CoverMotif } from "@/lib/types";
+import type { CoverMotif, SubjectId } from "@/lib/types";
 
 // Original generative illustrations used as course covers when no official
-// preview is available. They are labelled "Illustrazione ATLAS" in the UI.
+// image is available. The UI declares them as ATLAS illustrations (cover title
+// attribute and the catalogue footnote).
 // Motifs respect basic scientific conventions (e.g. right-handed B-DNA with
 // major/minor grooves, pyranose ring, p-orbital lobes, dipole field lines).
 
@@ -47,58 +48,51 @@ interface Palette {
   c: string; // highlight
 }
 
-const PALETTES: Record<CoverMotif, Palette[]> = {
-  dna: [
-    { bg0: "#04121f", bg1: "#0b2a4a", a: "#56a6ff", b: "#2dd4bf", c: "#e0f2ff" },
-    { bg0: "#0b0718", bg1: "#24124a", a: "#a78bfa", b: "#56a6ff", c: "#ede9fe" },
+export type CoverSubject = SubjectId | "multi";
+
+/**
+ * Palettes by subject, so the cover tells the subject at a glance (the same hues
+ * as the subject tones used across ATLAS: biology green, chemistry coral, physics
+ * violet; several subjects together read azure). Free resources never get gold or
+ * amber: gold is reserved for premium.
+ */
+const PALETTES: Record<CoverSubject, Palette[]> = {
+  biologia: [
+    { bg0: "#03120d", bg1: "#0a3324", a: "#45c79a", b: "#3d8bff", c: "#d7f7ea" },
+    { bg0: "#031216", bg1: "#0a2f38", a: "#2dd4bf", b: "#45c79a", c: "#ccfbf1" },
+    { bg0: "#05100c", bg1: "#113a2a", a: "#6ee7b7", b: "#8db9ff", c: "#ecfdf5" },
+    { bg0: "#040d14", bg1: "#0d2a33", a: "#45c79a", b: "#aba3f2", c: "#e6fff5" },
   ],
-  cell: [
-    { bg0: "#03140f", bg1: "#0b3a2c", a: "#34d399", b: "#56a6ff", c: "#d1fae5" },
-    { bg0: "#120716", bg1: "#3b0f3a", a: "#f472b6", b: "#a78bfa", c: "#fce7f3" },
+  chimica: [
+    { bg0: "#140906", bg1: "#3a170d", a: "#f08a5d", b: "#8db9ff", c: "#ffe8dd" },
+    { bg0: "#0b0a14", bg1: "#24172c", a: "#f2a07b", b: "#9fb8ff", c: "#fff1ea" },
+    { bg0: "#080c16", bg1: "#172238", a: "#f08a5d", b: "#3d8bff", c: "#fde7dc" },
+    { bg0: "#110a0d", bg1: "#311620", a: "#f39a86", b: "#aba3f2", c: "#ffeceb" },
   ],
-  mitochondrion: [
-    { bg0: "#140a03", bg1: "#3d1d07", a: "#fb923c", b: "#fbbf24", c: "#ffedd5" },
-    { bg0: "#03101c", bg1: "#0e2d4f", a: "#56a6ff", b: "#f472b6", c: "#e0f2fe" },
+  fisica: [
+    { bg0: "#090818", bg1: "#201a48", a: "#aba3f2", b: "#3d8bff", c: "#ede9fe" },
+    { bg0: "#050b18", bg1: "#10244a", a: "#8db9ff", b: "#aba3f2", c: "#e6efff" },
+    { bg0: "#0b0716", bg1: "#2a1646", a: "#c4b5fd", b: "#67e8f9", c: "#f5f3ff" },
+    { bg0: "#04101a", bg1: "#0c2a40", a: "#67e8f9", b: "#aba3f2", c: "#ecfeff" },
   ],
-  molecule: [
-    { bg0: "#0a0a12", bg1: "#1f1f3a", a: "#93c5fd", b: "#f87171", c: "#f5f5f7" },
-    { bg0: "#071311", bg1: "#123a33", a: "#5eead4", b: "#fb7185", c: "#f0fdfa" },
-  ],
-  orbital: [
-    { bg0: "#05071a", bg1: "#151b4d", a: "#818cf8", b: "#56a6ff", c: "#e0e7ff" },
-    { bg0: "#100516", bg1: "#2e0f42", a: "#e879f9", b: "#818cf8", c: "#fae8ff" },
-  ],
-  wave: [
-    { bg0: "#040d18", bg1: "#0c2440", a: "#38bdf8", b: "#818cf8", c: "#e0f2fe" },
-    { bg0: "#0f0716", bg1: "#2a1040", a: "#c084fc", b: "#38bdf8", c: "#f3e8ff" },
-  ],
-  fluid: [
-    { bg0: "#020f17", bg1: "#06324a", a: "#22d3ee", b: "#3b82f6", c: "#cffafe" },
-    { bg0: "#140508", bg1: "#3f0d16", a: "#f87171", b: "#fb7185", c: "#ffe4e6" },
-  ],
-  field: [
-    { bg0: "#0b0b14", bg1: "#24243f", a: "#facc15", b: "#60a5fa", c: "#fef9c3" },
-    { bg0: "#050b14", bg1: "#10233f", a: "#60a5fa", b: "#f472b6", c: "#dbeafe" },
-  ],
-  lens: [
-    { bg0: "#070712", bg1: "#1c1c3a", a: "#fde68a", b: "#a5b4fc", c: "#fffbeb" },
-    { bg0: "#03121a", bg1: "#0b3344", a: "#67e8f9", b: "#fde68a", c: "#ecfeff" },
-  ],
-  neuron: [
-    { bg0: "#090514", bg1: "#24113f", a: "#c084fc", b: "#f472b6", c: "#f5f3ff" },
-    { bg0: "#041311", bg1: "#0e3b33", a: "#2dd4bf", b: "#a3e635", c: "#f0fdfa" },
-  ],
-  spectrum: [
-    { bg0: "#08080f", bg1: "#1a1a2e", a: "#f472b6", b: "#60a5fa", c: "#ffffff" },
-    { bg0: "#0a0806", bg1: "#2a2118", a: "#fbbf24", b: "#f472b6", c: "#fffbeb" },
-  ],
-  lattice: [
-    { bg0: "#06090f", bg1: "#152238", a: "#93c5fd", b: "#a78bfa", c: "#eff6ff" },
-    { bg0: "#0d0a05", bg1: "#33270f", a: "#fcd34d", b: "#fb923c", c: "#fffbeb" },
+  multi: [
+    { bg0: "#050b18", bg1: "#0d2350", a: "#3d8bff", b: "#45c79a", c: "#e6efff" },
+    { bg0: "#070a18", bg1: "#181d48", a: "#8db9ff", b: "#aba3f2", c: "#eef2ff" },
+    { bg0: "#041018", bg1: "#0b2c44", a: "#3d8bff", b: "#f08a5d", c: "#e6efff" },
   ],
 };
 
-const GOLD: Palette = { bg0: "#0c0904", bg1: "#2e2209", a: "#efc55c", b: "#f6dc8f", c: "#fff8e1" };
+const GOLD: Palette[] = [
+  { bg0: "#0c0904", bg1: "#2e2209", a: "#efc14f", b: "#f6dc8f", c: "#fff8e1" },
+  { bg0: "#0b0906", bg1: "#33260b", a: "#f4d27a", b: "#e2a92e", c: "#fffaf0" },
+];
+
+/** Small stable string hash, so neighbouring cards with the same motif still differ. */
+function hash(s: string) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return Math.abs(h);
+}
 
 function DNA({ p, r }: { p: Palette; r: () => number }) {
   const cy = H / 2 + (r() - 0.5) * 40;
@@ -377,11 +371,8 @@ function Spectrum({ p, uid }: { p: Palette; r: () => number; uid: string }) {
     <g>
       <defs>
         <linearGradient id={`${uid}-spec`} x1="0" x2="1">
-          <stop offset="0" stopColor="#ef4444" />
-          <stop offset="0.25" stopColor="#f59e0b" />
-          <stop offset="0.45" stopColor="#22c55e" />
-          <stop offset="0.65" stopColor="#3b82f6" />
-          <stop offset="0.85" stopColor="#8b5cf6" />
+          <stop offset="0" stopColor={p.b} stopOpacity="0.4" />
+          <stop offset="0.55" stopColor={p.a} />
           <stop offset="1" stopColor={p.c} />
         </linearGradient>
       </defs>
@@ -420,40 +411,60 @@ const MOTIF: Record<CoverMotif, (props: { p: Palette; r: () => number; uid: stri
   lattice: Lattice,
 };
 
-export function CoverArt({ motif, seed, premium, className }: { motif: CoverMotif; seed: number; premium?: boolean; className?: string }) {
+export function CoverArt({
+  motif,
+  seed,
+  premium,
+  className,
+  subject = "multi",
+  salt = "",
+}: {
+  motif: CoverMotif;
+  seed: number;
+  premium?: boolean;
+  className?: string;
+  /** Colours the cover by subject (several subjects: "multi"). */
+  subject?: CoverSubject;
+  /** Any stable string (e.g. the resource id) to vary palette and composition. */
+  salt?: string;
+}) {
   const id = useId().replace(/:/g, "");
-  const { p, content } = useMemo(() => {
-    const r = rng(seed + motif.length * 17);
-    const options = PALETTES[motif];
-    const base = options[seed % options.length];
-    const p = premium ? { ...base, ...GOLD, a: GOLD.a, b: base.a, c: GOLD.c } : base;
+  const { p, content, transform } = useMemo(() => {
+    const h = hash(`${salt}:${seed}`);
+    const r = rng(seed + motif.length * 17 + (h % 997));
+    const options = premium ? GOLD : PALETTES[subject];
+    const p = options[h % options.length];
+    // Editorial composition: the motif is enlarged and pushed off-centre (towards
+    // the top right) so it bleeds off the edge and leaves the lower left calm for
+    // the title printed over it.
+    const scale = 1.18 + r() * 0.32;
+    const dx = 90 + r() * 90;
+    const dy = -70 + r() * 36;
+    const rot = -12 + r() * 24;
+    const transform = `translate(${W / 2 + dx} ${H / 2 + dy}) rotate(${rot}) scale(${scale}) translate(${-W / 2} ${-H / 2})`;
     // Motifs are pure render helpers called directly: the RNG is consumed exactly
     // once per memo pass, so server, client and Strict Mode re-renders agree.
-    return { p, content: stabilize(MOTIF[motif]({ p, r, uid: id })) };
-  }, [motif, seed, premium, id]);
+    return { p, transform: roundNumbers(transform), content: stabilize(MOTIF[motif]({ p, r, uid: id })) };
+  }, [motif, seed, premium, id, subject, salt]);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className={className} preserveAspectRatio="xMidYMid slice" aria-hidden>
+    <svg viewBox={`0 0 ${W} ${H}`} className={className} preserveAspectRatio="xMidYMid slice" aria-hidden focusable="false">
       <defs>
         <linearGradient id={`${id}-bg`} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={p.bg0} />
           <stop offset="1" stopColor={p.bg1} />
         </linearGradient>
-        <radialGradient id={`${id}-glow`} cx="0.7" cy="0.35" r="0.7">
-          <stop offset="0" stopColor={p.a} stopOpacity="0.28" />
+        <radialGradient id={`${id}-glow`} cx="0.72" cy="0.3" r="0.62">
+          <stop offset="0" stopColor={p.a} stopOpacity="0.2" />
           <stop offset="1" stopColor={p.a} stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0.55" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.55" />
+        <linearGradient id={`${id}-fade`} x1="0" y1="0" x2="0.35" y2="1">
+          <stop offset="0.45" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.62" />
         </linearGradient>
-        <pattern id={`${id}-grid`} width="32" height="32" patternUnits="userSpaceOnUse">
-          <path d="M32 0 H0 V32" fill="none" stroke="#fff" strokeOpacity="0.035" />
-        </pattern>
       </defs>
       <rect width={W} height={H} fill={`url(#${id}-bg)`} />
-      <rect width={W} height={H} fill={`url(#${id}-grid)`} />
       <rect width={W} height={H} fill={`url(#${id}-glow)`} />
-      {content}
+      <g transform={transform}>{content}</g>
       <rect width={W} height={H} fill={`url(#${id}-fade)`} />
     </svg>
   );

@@ -83,6 +83,7 @@ export function Dashboard() {
         planDone={planDone}
         hasPlan={!!plan}
         restDay={restDay}
+        firstTime={sessions.length === 0}
       />
 
       <div className="grid gap-5 sm:gap-6 xl:grid-cols-12 xl:gap-8">
@@ -96,9 +97,10 @@ export function Dashboard() {
             weekly={weeklyBreakdown(sessions, now)}
           />
         </div>
-        <div className="space-y-5 sm:space-y-6 xl:col-span-4 xl:space-y-8">
+        {/* Below xl the two short panels share a row on tablets; the suggestions span it. */}
+        <div className="flex flex-col gap-5 sm:gap-6 md:grid md:grid-cols-2 md:items-start xl:col-span-4 xl:flex xl:gap-8">
+          <NextStepsPanel tips={tips.slice(1)} className="md:col-span-2" />
           <ExamsPanel now={now} target={profile.examTarget} />
-          <NextStepsPanel tips={tips.slice(1)} />
           <SimulationsPanel sims={sims} />
         </div>
       </div>
@@ -112,8 +114,8 @@ export function Dashboard() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-5 sm:space-y-6 lg:space-y-8" role="status" aria-label="Caricamento della dashboard">
-      <div className="card grid overflow-hidden rounded-panel md:grid-cols-12">
-        <div className="space-y-4 px-5 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-7 md:col-span-7 lg:px-10 lg:py-10">
+      <div className="card grid overflow-hidden rounded-panel xl:grid-cols-[minmax(0,1fr)_minmax(20rem,24rem)]">
+        <div className="space-y-4 px-5 pb-6 pt-5 sm:px-8 sm:pb-8 sm:pt-7 lg:px-10 lg:pb-10 lg:pt-9">
           <Skeleton className="h-4 w-36" />
           <Skeleton className="h-10 w-3/4 max-w-sm lg:h-12" />
           <Skeleton className="mt-6 h-4 w-48" />
@@ -121,10 +123,10 @@ function DashboardSkeleton() {
           <Skeleton className="h-12 w-full max-w-lg" />
           <div className="flex flex-col gap-2 pt-2 sm:flex-row">
             <Skeleton className="h-12 w-full sm:w-52" />
-            <Skeleton className="h-12 w-full sm:w-44" />
+            <Skeleton className="h-12 w-full sm:w-60" />
           </div>
         </div>
-        <div className="space-y-4 border-t border-white/[0.07] px-5 py-6 sm:px-8 md:col-span-5 md:border-l md:border-t-0 lg:py-9">
+        <div className="space-y-4 border-t border-white/[0.07] px-5 py-6 sm:px-8 sm:py-7 xl:border-l xl:border-t-0 xl:py-9">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-11 w-full" />
           <Skeleton className="h-11 w-full" />

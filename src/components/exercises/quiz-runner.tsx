@@ -33,7 +33,7 @@ import {
 import type { OpenQuestion, Question } from "@/lib/types";
 import { correctAnswerText, grade, present, QUESTION_TYPE_LABEL, type PresentedQuestion } from "@/data/questions";
 import { getTopicRef } from "@/data/syllabus";
-import { Badge, Button, Card, Kbd, Modal, Notice, ProgressBar, ProgressRing, Textarea } from "@/components/ui/primitives";
+import { Badge, Button, Card, Kbd, Meridian, Modal, Notice, ProgressBar, ProgressRing, Textarea } from "@/components/ui/primitives";
 import { toast } from "@/components/ui/toast";
 import { hidesMobileNav } from "@/components/layout/mobile-nav";
 import { formatDuration } from "@/components/quiz/format";
@@ -89,6 +89,8 @@ interface Props {
   onSnapshot?: (s: QuizRunnerSnapshot) => void;
   /** Adds "Nuovo quiz" to the summary (back to the quiz builder). */
   onNewQuiz?: () => void;
+  /** Shown above the summary once the run is handed in, in place of `headerStart` (e.g. "Prova consegnata" and what comes next). */
+  finishedHeader?: ReactNode;
 }
 
 const LETTERS = ["A", "B", "C", "D", "E"];
@@ -113,6 +115,7 @@ export function QuizRunner({
   initialState,
   onSnapshot,
   onNewQuiz,
+  finishedHeader,
 }: Props) {
   // "Rifai le sbagliate" replaces the set with the missed questions, in the same order.
   const [subset, setSubset] = useState<Question[] | null>(null);
@@ -403,7 +406,7 @@ export function QuizRunner({
   if (finished) {
     return (
       <div ref={rootRef} className="scroll-mt-20 space-y-5">
-        {headerStart && <div className="flex min-w-0 items-center gap-2">{headerStart}</div>}
+        {finishedHeader ?? (headerStart && <div className="flex min-w-0 items-center gap-2">{headerStart}</div>)}
         {timedOut && (
           <Notice tone="warning" title="Tempo scaduto" live>
             La prova è stata consegnata automaticamente con le risposte date fino a quel momento.
@@ -483,8 +486,8 @@ export function QuizRunner({
         className={cn(
           sticky
             ? cn(
-                "sticky z-20 -mx-4 border-b border-white/[0.07] bg-ink-950/85 px-4 backdrop-blur-xl backdrop-saturate-150 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0",
-                focusMode ? "top-0 pt-[env(safe-area-inset-top)]" : "top-14",
+                "sticky z-20 -mx-4 bg-ink-950/85 px-4 backdrop-blur-xl backdrop-saturate-150 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0",
+                focusMode ? "top-0 -mt-[max(1rem,env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] lg:-mt-6" : "top-14",
               )
             : "mb-1",
         )}
@@ -513,12 +516,19 @@ export function QuizRunner({
             </span>
           </div>
         )}
-        <ProgressBar
-          size="sm"
-          value={exam ? answeredCount / presented.length : checkedCount / presented.length}
-          label={exam ? `Risposte date: ${answeredCount} su ${presented.length}` : `Domande verificate: ${checkedCount} su ${presented.length}`}
-          className={cn(sticky ? "rounded-none bg-transparent" : "")}
-        />
+        {sticky ? (
+          // Page-level runs: the meridian marks the way through the questions (the page's one bold line).
+          <Meridian
+            value={exam ? answeredCount / presented.length : checkedCount / presented.length}
+            label={exam ? `Risposte date: ${answeredCount} su ${presented.length}` : `Domande verificate: ${checkedCount} su ${presented.length}`}
+          />
+        ) : (
+          <ProgressBar
+            size="sm"
+            value={exam ? answeredCount / presented.length : checkedCount / presented.length}
+            label={exam ? `Risposte date: ${answeredCount} su ${presented.length}` : `Domande verificate: ${checkedCount} su ${presented.length}`}
+          />
+        )}
         <span className="sr-only" aria-live="polite">
           {timeAlert}
         </span>

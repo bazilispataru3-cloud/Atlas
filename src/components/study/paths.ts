@@ -151,3 +151,32 @@ export function toolsSentence(keys: StepKey[], capital = true): string {
   const s = keys.map((k) => STEP_TOOL[k]).join(", ");
   return capital ? s.charAt(0).toLocaleUpperCase("it-IT") + s.slice(1) : s;
 }
+
+/**
+ * The next topic to study in a list of topic states (same rule as the subjects pages and
+ * the dashboard): first what needs consolidating, then what is in progress, then a new one.
+ */
+export function nextTopic<T extends { ref: TopicRef; status: string }>(states: T[], excludeId?: string): T | undefined {
+  const pool = excludeId ? states.filter((x) => x.ref.topic.id !== excludeId) : states;
+  return pool.find((x) => x.status === "da-consolidare") ?? pool.find((x) => x.status === "in-corso") ?? pool.find((x) => x.status === "nuovo");
+}
+
+/** Elapsed time for a running clock: "12:05", or "1:02:05" past the hour. */
+export function clockLabel(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${String(m).padStart(2, "0")}:${sec}`;
+}
+
+/** Minutes in words for summaries: "meno di 1 min", "12 min", "1 h 5 min". */
+export function minutesLabel(ms: number): string {
+  const min = ms / 60000;
+  if (min < 1) return "meno di 1 min";
+  const m = Math.round(min);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  return r ? `${h} h ${r} min` : `${h} h`;
+}

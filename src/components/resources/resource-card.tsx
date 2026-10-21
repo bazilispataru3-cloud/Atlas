@@ -1,46 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Heart, CalendarPlus, CalendarCheck, Play, ArrowUpRight, Clock, Languages, GraduationCap, Crown, BadgeCheck, BookOpen, MonitorPlay, Globe } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarCheck, CalendarPlus, Crown, Globe, GraduationCap, Heart, MonitorPlay } from "lucide-react";
 import type { Resource } from "@/lib/types";
-import { CoverArt } from "./cover-art";
 import { useAtlas } from "@/lib/store";
 import { useHydrated } from "@/lib/hooks";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { ResourceCover } from "./resource-cover";
+import { KIND_LABEL, LANG_LABEL, LEVEL_LABEL, ctaLabel, sourceLabel } from "./catalog";
 
-export const LANG_LABEL: Record<Resource["language"], string> = { it: "Italiano", en: "Inglese", fr: "Francese", es: "Spagnolo", de: "Tedesco", multi: "Multilingue" };
-const LEVEL_LABEL: Record<Resource["level"], string> = { introduttivo: "Introduttivo", universitario: "Universitario", avanzato: "Avanzato" };
-const KIND_LABEL: Record<Resource["kind"], string> = { corso: "Corso", videolezione: "Videolezione", libro: "Manuale", piattaforma: "Piattaforma", playlist: "Playlist" };
+export { LANG_LABEL };
 
-function Thumb({ r, className }: { r: Resource; className?: string }) {
-  const [failed, setFailed] = useState(false);
-  const ref = useRef<HTMLImageElement>(null);
-  useEffect(() => {
-    // An error that happens before hydration is not replayed to React.
-    const img = ref.current;
-    if (img?.complete && img.naturalWidth === 0) setFailed(true);
-  }, []);
-  if (r.youtubeId && !failed) {
-    return (
-      // hqdefault exists for every video; its 4:3 letterbox is cropped to 16:9 by object-cover.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        ref={ref}
-        src={`https://i.ytimg.com/vi/${r.youtubeId}/hqdefault.jpg`}
-        alt=""
-        loading="lazy"
-        referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-        onLoad={(e) => e.currentTarget.naturalWidth <= 120 && setFailed(true)}
-        className={cn("h-full w-full object-cover", className)}
-      />
-    );
-  }
-  return <CoverArt motif={r.cover?.motif ?? "lattice"} seed={r.cover?.seed ?? r.id.length} premium={r.access === "premium"} className={cn("h-full w-full", className)} />;
+const KIND_ICON: Record<Resource["kind"], typeof MonitorPlay> = {
+  videolezione: MonitorPlay,
+  libro: BookOpen,
+  piattaforma: Globe,
+  corso: GraduationCap,
+  playlist: GraduationCap,
+};
+
+/** Free or premium, said once, on the cover. */
+export function AccessBadge({ premium, className }: { premium: boolean; className?: string }) {
+  return premium ? (
+    <span className={cn("inline-flex h-6 items-center gap-1 rounded-chip border border-gold-400/55 bg-ink-950/80 px-2 text-xs font-semibold text-gold-200 backdrop-blur-sm", className)}>
+      <Crown className="h-3 w-3" aria-hidden /> Premium
+    </span>
+  ) : (
+    <span className={cn("inline-flex h-6 items-center rounded-chip border border-azure-400/55 bg-ink-950/80 px-2 text-xs font-semibold text-azure-200 backdrop-blur-sm", className)}>Free</span>
+  );
 }
 
-export function ResourceCard({ r, featured }: { r: Resource; featured?: boolean }) {
+function Duration({ value, className }: { value: string; className?: string }) {
+  return (
+    <span className={cn("rounded-md bg-ink-950/85 px-1.5 py-0.5 text-xs font-medium tabular-nums text-white backdrop-blur-sm", className)}>
+      <span className="sr-only">Durata </span>
+      {value}
+    </span>
+  );
+}
+
+/** Favourite and "add to plan": two small toggles above the card's stretched link. */
+function CardActions({ r, compact }: { r: Resource; compact?: boolean }) {
   const hydrated = useHydrated();
   const favorites = useAtlas((s) => s.favorites);
   const planned = useAtlas((s) => s.plannedResources);
@@ -49,112 +49,179 @@ export function ResourceCard({ r, featured }: { r: Resource; featured?: boolean 
   const removeFromPlan = useAtlas((s) => s.removeResourceFromPlan);
   const fav = hydrated && favorites.includes(r.id);
   const inPlan = hydrated && planned.some((p) => p.resourceId === r.id);
-  const premium = r.access === "premium";
-  const foreign = r.language !== "it" && r.titleIt;
-  const KindIcon = r.kind === "videolezione" ? MonitorPlay : r.kind === "libro" ? BookOpen : r.kind === "piattaforma" ? Globe : GraduationCap;
-
+  const name = r.titleIt ?? r.title;
+  const size = compact ? "h-11 w-11 sm:h-8 sm:w-8" : "h-11 w-11 sm:h-9 sm:w-9";
   return (
-    <article
-      className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-[1.4rem] border bg-ink-850/90 transition-all duration-300 hover:-translate-y-1",
-        premium
-          ? "border-gold-400/30 shadow-[0_0_0_1px_rgba(239,197,92,0.06)] hover:border-gold-300/60 hover:shadow-[0_0_0_1px_rgba(246,220,143,0.35),0_18px_50px_-18px_rgba(226,170,47,0.55)]"
-          : "border-azure-400/20 hover:border-azure-300/55 hover:shadow-[0_0_0_1px_rgba(143,196,255,0.3),0_18px_50px_-18px_rgba(47,139,255,0.55)]",
-      )}
-    >
-      {/* Whole-card link; interactive controls sit above it. */}
-      <a href={r.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 z-[1]" aria-label={`Apri ${r.titleIt ?? r.title} (${r.provider}) in una nuova scheda`} />
+    <div className="relative z-10 flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        onClick={() => {
+          toggleFavorite(r.id);
+          toast(fav ? "Rimossa dai preferiti" : "Salvata nei preferiti", { tone: fav ? "info" : "success", description: fav ? undefined : "La ritrovi con il filtro Preferiti." });
+        }}
+        className={cn(
+          "grid place-items-center rounded-control transition-colors duration-150",
+          size,
+          fav ? "bg-rose-500/[0.12] text-rose-300 hover:bg-rose-500/20" : "text-fg-subtle hover:bg-white/[0.06] hover:text-fg",
+        )}
+        aria-pressed={fav}
+        aria-label={`Salva nei preferiti: ${name}`}
+        title={fav ? "Nei preferiti" : "Salva nei preferiti"}
+      >
+        <Heart className={cn("h-4 w-4", fav && "fill-current")} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (inPlan) removeFromPlan(r.id);
+          else addToPlan({ resourceId: r.id, title: name, url: r.url });
+          toast(inPlan ? "Rimossa dal piano di studio" : "Aggiunta al piano di studio", { tone: inPlan ? "info" : "success", description: inPlan ? undefined : "La trovi nel Calendario, tra le risorse del piano." });
+        }}
+        className={cn(
+          "grid place-items-center rounded-control transition-colors duration-150",
+          size,
+          inPlan ? "bg-success/[0.12] text-green-300 hover:bg-success/20" : "text-fg-subtle hover:bg-white/[0.06] hover:text-fg",
+        )}
+        aria-pressed={inPlan}
+        aria-label={`Aggiungi al piano di studio: ${name}`}
+        title={inPlan ? "Nel piano di studio" : "Aggiungi al piano di studio"}
+      >
+        {inPlan ? <CalendarCheck className="h-4 w-4" aria-hidden /> : <CalendarPlus className="h-4 w-4" aria-hidden />}
+      </button>
+    </div>
+  );
+}
 
-      <div className="relative aspect-video overflow-hidden">
-        <Thumb r={r} className="transition-transform duration-700 group-hover:scale-[1.04]" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink-950/70 via-transparent to-transparent" />
-        <div className="absolute left-3 top-3 flex items-center gap-1.5">
-          {premium ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-gold-300/50 bg-black/55 px-2.5 py-1 text-[10.5px] font-semibold tracking-[0.14em] text-gold-200 backdrop-blur">
-              <Crown className="h-3 w-3" /> PREMIUM
-            </span>
-          ) : (
-            <span className="inline-flex items-center rounded-full border border-azure-300/50 bg-black/55 px-2.5 py-1 text-[10.5px] font-semibold tracking-[0.16em] text-azure-200 shadow-[0_0_14px_rgba(86,166,255,0.45)] backdrop-blur">FREE</span>
-          )}
-          {!r.youtubeId && <span className="rounded-full bg-black/50 px-2 py-1 text-[10px] text-white/70 backdrop-blur">Illustrazione ATLAS</span>}
+/**
+ * The card's only link. Its ::after covers the whole card, so the cover and the
+ * title are clickable too, while the keyboard meets a single tab stop.
+ */
+function CardLink({ r, className, children }: { r: Resource; className?: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={r.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn("after:absolute after:inset-0 after:z-[1] after:rounded-[inherit] after:content-['']", className)}
+    >
+      {children}
+      <span className="sr-only">
+        : {r.titleIt ?? r.title}, {sourceLabel(r)} (si apre in una nuova scheda)
+      </span>
+    </a>
+  );
+}
+
+type Variant = "grid" | "feature" | "row";
+
+export function ResourceCard({
+  r,
+  featured,
+  variant: variantProp,
+  showKind = true,
+  headingLevel = "h3",
+}: {
+  r: Resource;
+  /** Legacy alias for `variant="feature"`. */
+  featured?: boolean;
+  variant?: Variant;
+  /** Hide the kind icon when the surrounding section already says it. */
+  showKind?: boolean;
+  headingLevel?: "h2" | "h3";
+}) {
+  const variant: Variant = variantProp ?? (featured ? "feature" : "grid");
+  const premium = r.access === "premium";
+  const foreign = r.language !== "it" && r.titleIt && r.titleIt !== r.title;
+  const KindIcon = KIND_ICON[r.kind];
+  const Heading = headingLevel;
+  const accent = premium ? "text-gold-300 group-hover:text-gold-200" : "text-azure-300 group-hover:text-azure-200";
+  const shell = cn(
+    "group card relative transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    "has-[a:focus-visible]:border-azure-400/60 has-[a:focus-visible]:shadow-[0_0_0_3px_rgb(61_139_255/0.18)]",
+    premium ? "border-gold-400/25 hover:border-gold-300/45" : "hover:border-white/[0.16] hover:shadow-[inset_0_1px_0_rgb(255_255_255/0.06)]",
+  );
+
+  const source = (
+    <p className="flex min-w-0 items-center gap-1.5 text-ui text-fg-muted">
+      {showKind && (
+        <>
+          <KindIcon className="h-3.5 w-3.5 shrink-0 text-fg-subtle" aria-hidden />
+          <span className="sr-only">{KIND_LABEL[r.kind]} di </span>
+        </>
+      )}
+      <span className="truncate">{sourceLabel(r)}</span>
+    </p>
+  );
+
+  const meta = (
+    <ul className="flex flex-wrap items-center gap-1.5" aria-label="Lingua e livello">
+      <li className={cn("inline-flex h-6 items-center rounded-chip border px-2 text-xs font-medium", r.language === "it" ? "border-azure-400/30 bg-azure-500/[0.1] text-azure-200" : "border-white/10 bg-white/[0.04] text-fg-muted")}>
+        {LANG_LABEL[r.language]}
+      </li>
+      <li className="inline-flex h-6 items-center rounded-chip border border-white/10 bg-white/[0.04] px-2 text-xs font-medium text-fg-muted">{LEVEL_LABEL[r.level]}</li>
+    </ul>
+  );
+
+  if (variant === "row") {
+    return (
+      <article className={cn(shell, "flex gap-3.5 p-2.5 sm:gap-4")}>
+        <div className="relative aspect-video w-32 shrink-0 self-start overflow-hidden rounded-lg sm:w-40">
+          <ResourceCover r={r} size="row" className="transition-[filter] duration-200 group-hover:brightness-110" />
+          {r.duration && <Duration value={r.duration} className="absolute bottom-1.5 right-1.5" />}
         </div>
-        {r.duration && (
-          <span className="absolute bottom-3 right-3 rounded-md bg-black/70 px-1.5 py-0.5 font-mono text-[11px] text-white">{r.duration}</span>
-        )}
-        {r.youtubeId && (
-          <span className={cn("absolute left-1/2 top-1/2 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full opacity-0 backdrop-blur transition group-hover:opacity-100", premium ? "bg-gold-400/80 text-ink-950" : "bg-azure-500/85 text-white")}>
-            <Play className="h-5 w-5 fill-current" />
-          </span>
-        )}
+        <div className="flex min-w-0 flex-1 flex-col py-0.5">
+          {source}
+          <Heading className="mt-1 line-clamp-2 text-sm font-semibold leading-snug text-fg">
+            <CardLink r={r} className="focus-visible:outline-offset-4">
+              {r.titleIt ?? r.title}
+            </CardLink>
+          </Heading>
+          <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+            <span className={cn("text-xs font-medium", r.language === "it" ? "text-azure-200" : "text-fg-muted")}>{LANG_LABEL[r.language]}</span>
+            <CardActions r={r} compact />
+          </div>
+        </div>
+      </article>
+    );
+  }
+
+  const feature = variant === "feature";
+  return (
+    <article className={cn(shell, "flex h-full flex-col overflow-hidden")}>
+      <div className="relative aspect-video overflow-hidden border-b border-white/[0.06]">
+        <ResourceCover r={r} size={feature ? "feature" : "card"} className="transition-[filter] duration-200 group-hover:brightness-110" />
+        <AccessBadge premium={premium} className="absolute left-3 top-3" />
+        {r.duration && r.kind === "videolezione" && <Duration value={r.duration} className="absolute bottom-3 right-3" />}
       </div>
 
-      <div className={cn("flex flex-1 flex-col p-4", featured && "sm:p-5")}>
-        <div className={cn("flex items-center gap-1.5 text-[11.5px] font-medium", premium ? "text-gold-300" : "text-azure-300")}>
-          <KindIcon className="h-3.5 w-3.5" />
-          {KIND_LABEL[r.kind]} · <span className="truncate">{r.institution ?? r.provider}</span>
-        </div>
-        <h3 className={cn("mt-1.5 font-semibold leading-snug text-fg", featured ? "text-[17px]" : "text-[15px]")}>{r.titleIt ?? r.title}</h3>
-        {foreign && <div className="mt-0.5 line-clamp-1 text-[11.5px] italic text-fg-subtle">Titolo originale: {r.title}</div>}
-        {r.authors?.length ? (
-          <div className="mt-1.5 flex items-center gap-1 text-[12.5px] text-fg-muted">
-            <BadgeCheck className={cn("h-3.5 w-3.5 shrink-0", premium ? "text-gold-300" : "text-azure-300")} />
-            <span className="line-clamp-1">{r.authors.join(", ")}</span>
-          </div>
-        ) : null}
-        <p className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-fg-subtle">{r.description}</p>
-
-        <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11.5px] text-fg-subtle">
-          <span className="flex items-center gap-1"><Languages className="h-3.5 w-3.5" /> {LANG_LABEL[r.language]}</span>
-          <span className="flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5" /> {LEVEL_LABEL[r.level]}</span>
-          {r.duration && <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {r.duration}</span>}
-          <span>{r.provider}</span>
-        </div>
-
-        {premium && (
-          <div className="mt-3 rounded-xl border border-gold-400/20 bg-gold-500/[0.06] px-3 py-2">
-            <div className="text-[13px] font-medium text-gold-200">{r.price ?? "Prezzo sul sito ufficiale"}</div>
-            {r.priceNote && <div className="mt-0.5 text-[11px] leading-snug text-gold-200/60">{r.priceNote}</div>}
-          </div>
+      <div className={cn("flex flex-1 flex-col", feature ? "p-5 sm:p-6" : "p-4 sm:p-5")}>
+        {source}
+        {/* Size first, then leading: tailwind-merge drops a leading-* that precedes a text size. */}
+        <Heading className={cn("mt-2 font-display font-normal tracking-[-0.01em] text-fg", feature ? "text-[1.75rem] sm:text-3xl" : "text-xl", "leading-[1.15]")}>{r.titleIt ?? r.title}</Heading>
+        {foreign && (
+          <p className="mt-1 line-clamp-1 text-xs text-fg-subtle">
+            Titolo originale: <span lang="en">{r.title}</span>
+          </p>
         )}
-        {!premium && r.priceNote && <div className="mt-2 text-[11px] leading-snug text-fg-subtle">{r.priceNote}</div>}
+        {r.authors?.length ? <p className="mt-2 line-clamp-1 text-ui text-fg-muted">{r.authors.join(", ")}</p> : null}
+        <p className={cn("mt-2.5 leading-relaxed text-fg-muted", feature ? "line-clamp-3 max-w-[60ch] text-base" : "line-clamp-3 text-sm")}>{r.description}</p>
+        {r.priceNote && !premium && <p className="mt-2 text-xs leading-snug text-fg-subtle">{r.priceNote}</p>}
+        {premium && (
+          <p className="mt-3 text-sm font-medium text-gold-200">
+            {r.price ?? "Prezzo sul sito ufficiale"}
+            {r.priceNote && <span className="mt-0.5 block text-xs font-normal leading-snug text-fg-subtle">{r.priceNote}</span>}
+          </p>
+        )}
 
-        <div className="relative z-[2] mt-auto flex items-center gap-2 pt-4">
-          <a
-            href={r.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl text-[13px] font-semibold transition",
-              premium
-                ? "bg-gradient-to-b from-gold-300 to-gold-500 text-ink-950 hover:from-gold-200 hover:to-gold-400"
-                : "bg-azure-500/15 text-azure-100 ring-1 ring-inset ring-azure-400/40 hover:bg-azure-500 hover:text-white",
-            )}
-          >
-            {premium ? "Scopri il corso" : r.kind === "videolezione" ? "Guarda gratuitamente" : "Apri corso"} <ArrowUpRight className="h-3.5 w-3.5" />
-          </a>
-          <button
-            onClick={() => {
-              toggleFavorite(r.id);
-              toast(fav ? "Rimosso dai preferiti" : "Salvato nei preferiti", { tone: fav ? "info" : "success" });
-            }}
-            className={cn("grid h-9 w-9 place-items-center rounded-xl border transition", fav ? "border-rose-400/40 bg-rose-500/15 text-rose-300" : "border-white/10 text-fg-subtle hover:text-fg")}
-            aria-pressed={fav}
-            aria-label={fav ? "Rimuovi dai preferiti" : "Salva nei preferiti"}
-          >
-            <Heart className={cn("h-4 w-4", fav && "fill-current")} />
-          </button>
-          <button
-            onClick={() => {
-              if (inPlan) removeFromPlan(r.id);
-              else addToPlan({ resourceId: r.id, title: r.titleIt ?? r.title, url: r.url });
-              toast(inPlan ? "Rimosso dal piano di studio" : "Aggiunto al piano di studio", { tone: inPlan ? "info" : "success", description: inPlan ? undefined : "Lo trovi nel Calendario, tra le risorse del piano." });
-            }}
-            className={cn("grid h-9 w-9 place-items-center rounded-xl border transition", inPlan ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-300" : "border-white/10 text-fg-subtle hover:text-fg")}
-            aria-pressed={inPlan}
-            aria-label={inPlan ? "Rimuovi dal piano di studio" : "Aggiungi al piano di studio"}
-          >
-            {inPlan ? <CalendarCheck className="h-4 w-4" /> : <CalendarPlus className="h-4 w-4" />}
-          </button>
+        <div className="mt-auto pt-4">
+          {meta}
+          <div className="mt-3 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+            <CardLink r={r} className={cn("inline-flex min-h-11 items-center gap-1.5 rounded-md text-sm font-semibold transition-colors duration-150 sm:min-h-9", accent)}>
+              {ctaLabel(r)}
+              <ArrowUpRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-px group-hover:-translate-y-px" aria-hidden />
+            </CardLink>
+            <CardActions r={r} />
+          </div>
         </div>
       </div>
     </article>
@@ -163,32 +230,41 @@ export function ResourceCard({ r, featured }: { r: Resource; featured?: boolean 
 
 /** Compact list used inside study sessions and topic pages. */
 export function ResourceMiniList({ resources }: { resources: Resource[] }) {
-  if (!resources.length) return <p className="text-[13px] text-fg-subtle">Nessuna risorsa verificata nel catalogo per questo argomento: usa la ricerca in Study Resources.</p>;
+  if (!resources.length) return <p className="text-sm text-fg-muted">Nessuna risorsa del catalogo verificato per questo argomento: cerca in Study Resources.</p>;
   return (
     <ul className="grid gap-2.5 md:grid-cols-2">
-      {resources.map((r) => (
-        <li key={r.id}>
-          <a
-            href={r.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              "group flex gap-3 rounded-2xl border p-2.5 transition",
-              r.access === "premium" ? "border-gold-400/25 hover:border-gold-300/50" : "border-white/[0.07] hover:border-azure-400/40 hover:bg-azure-500/[0.04]",
-            )}
-          >
-            <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-xl">
-              <Thumb r={r} />
-              {r.duration && <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">{r.duration}</span>}
-            </div>
-            <div className="min-w-0 py-0.5">
-              <div className="line-clamp-2 text-[13px] font-medium leading-snug text-fg">{r.titleIt ?? r.title}</div>
-              <div className="mt-1 truncate text-[11.5px] text-fg-subtle">{r.institution ?? r.provider} · {LANG_LABEL[r.language]}</div>
-              <span className={cn("mt-1 inline-block text-[10px] font-semibold tracking-[0.14em]", r.access === "premium" ? "text-gold-300" : "text-azure-300")}>{r.access === "premium" ? "PREMIUM" : "FREE"}</span>
-            </div>
-          </a>
-        </li>
-      ))}
+      {resources.map((r) => {
+        const premium = r.access === "premium";
+        return (
+          <li key={r.id}>
+            <a
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "group flex gap-3 rounded-card border p-2.5 transition-colors duration-150",
+                premium ? "border-gold-400/25 hover:border-gold-300/50" : "border-white/[0.07] hover:border-white/[0.16] hover:bg-white/[0.02]",
+              )}
+            >
+              <div className="relative aspect-video w-32 shrink-0 overflow-hidden rounded-lg">
+                <ResourceCover r={r} size="thumb" />
+                {r.duration && r.kind === "videolezione" && <Duration value={r.duration} className="absolute bottom-1 right-1" />}
+              </div>
+              <div className="min-w-0 py-0.5">
+                <div className="line-clamp-2 text-sm font-medium leading-snug text-fg">{r.titleIt ?? r.title}</div>
+                <div className="mt-1 truncate text-xs text-fg-muted">
+                  {sourceLabel(r)}, {LANG_LABEL[r.language].toLowerCase()}
+                </div>
+                <span className={cn("mt-1.5 inline-flex items-center gap-1 text-xs font-semibold", premium ? "text-gold-300" : "text-azure-300")}>
+                  {premium && <Crown className="h-3 w-3" aria-hidden />}
+                  {premium ? "Premium" : "Free"}
+                  <span className="sr-only"> (si apre in una nuova scheda)</span>
+                </span>
+              </div>
+            </a>
+          </li>
+        );
+      })}
     </ul>
   );
 }

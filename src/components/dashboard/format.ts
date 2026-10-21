@@ -1,4 +1,4 @@
-import { GalleryVerticalEnd, Layers, ListChecks, Timer, Zap, BrainCircuit, type LucideIcon } from "lucide-react";
+import { GalleryVerticalEnd, Layers, ListChecks, Timer, Zap, BrainCircuit, Shuffle, type LucideIcon } from "lucide-react";
 import type { StudyMode } from "@/lib/types";
 import type { Suggestion } from "@/lib/insights";
 import { MODE_TONE, TONE } from "@/components/ui/tone";
@@ -17,12 +17,15 @@ export const MINUTE_TICKS = [15, 30, 60, 90, 120, 180, 240, 300, 360];
 
 export const MODE_ICON: Record<StudyMode, LucideIcon> = { fast: Zap, deep: Layers, ultra: BrainCircuit };
 
+/** Product names of the three study modes, as the student sees them everywhere else. */
+export const MODE_LABEL: Record<StudyMode, string> = { fast: "Fast", deep: "Deep", ultra: "Ultra" };
+
 const KIND_ICON: Record<Suggestion["kind"], LucideIcon> = {
   flashcard: GalleryVerticalEnd,
   consolida: Layers,
   verifica: ListChecks,
   simulazione: Timer,
-  equilibrio: Zap,
+  equilibrio: Shuffle,
   nuovo: BrainCircuit,
 };
 

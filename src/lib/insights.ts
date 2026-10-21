@@ -71,8 +71,8 @@ export interface Suggestion {
   href?: string;
   action?: { type: "study"; topicId: string; mode: StudyMode };
   minutes: number;
-  /** Colour hint for the icon only. Gold is premium-only, so no suggestion uses it. */
-  tone: "azure" | "gold" | "fast" | "deep" | "ultra" | "warning";
+  /** Colour hint for the icon only. Never gold: gold is reserved for premium content. */
+  tone: "azure" | "fast" | "deep" | "ultra" | "warning";
 }
 
 /** Where a suggestion leads: one click from the dashboard, no wizard in between. */

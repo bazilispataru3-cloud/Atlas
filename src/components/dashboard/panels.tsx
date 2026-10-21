@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, Check, CheckCircle2, ChevronRight, ExternalLink, Flame, GraduationCap, Library, Telescope, Timer, XCircle } from "lucide-react";
+import { BarChart3, CalendarDays, Check, CheckCircle2, ChevronRight, ExternalLink, Flame, GraduationCap, Library, Telescope, Timer, XCircle } from "lucide-react";
 import { Button, ProgressRing, SectionTitle } from "@/components/ui/primitives";
 import { StackedBars, Legend, type Series } from "@/components/ui/charts";
 import { STATUS_FILL } from "@/components/ui/status";
@@ -18,6 +18,8 @@ import { capFirst, cn, daysBetween, fmt } from "@/lib/utils";
 import { MINUTE_TICKS, shortMinutes, suggestionVisual } from "./format";
 
 const LINK = "inline-flex min-h-10 items-center gap-1 rounded-lg text-sm font-medium text-azure-300 transition-colors hover:text-azure-200";
+/** Same link in a section header: pulled up so its text sits on the title's line while keeping a 40px target. */
+const HEAD_LINK = `${LINK} -mr-1 -mt-2.5 px-1`;
 
 // ── Subjects: one compact row each ────────────────────────────
 
@@ -30,9 +32,9 @@ export function SubjectsPanel({ states, mastery }: { states: TopicState[]; maste
       <SectionTitle
         id="materie-titolo"
         title="Le tue materie"
-        description={`Padronanza del programma: ${fmt.percent(mastery.total)}, pesata sui CFU di ogni unità.`}
+        description={`Padronanza del programma: ${fmt.percent(mastery.total)}, pesata sui CFU.`}
         action={
-          <Link href="/materie" className={LINK}>
+          <Link href="/materie" className={HEAD_LINK}>
             Tutte le materie
           </Link>
         }
@@ -55,9 +57,10 @@ export function SubjectsPanel({ states, mastery }: { states: TopicState[]; maste
                   <Link href={`/materie/${s.id}`} className="min-w-0 rounded text-base font-medium leading-snug text-fg underline-offset-4 hover:underline">
                     {s.name}
                   </Link>
-                  <span className="shrink-0 text-sm text-fg-muted">
-                    <span className="font-semibold text-fg">{fmt.percent(mastery.bySubject[s.id])}</span> padronanza
-                  </span>
+                  <p className="shrink-0 text-sm text-fg-muted">
+                    <span className="text-lg font-semibold tracking-[-0.01em] text-fg">{fmt.percent(mastery.bySubject[s.id])}</span>
+                    <span className="sr-only sm:not-sr-only"> padronanza</span>
+                  </p>
                 </div>
                 <p className="mt-0.5 text-sm text-fg-muted">
                   {s.cfu} CFU, {started} di {list.length} argomenti avviati
@@ -122,36 +125,34 @@ export function ProgressPanel({
   week: number;
   weekly: { day: Date; values: Record<SubjectId, number>; isToday: boolean }[];
 }) {
-  const reached = today >= goal;
+  const reached = goal > 0 && today >= goal;
   return (
     <section aria-labelledby="progressi-titolo" className="card p-5 sm:p-6">
       <h2 id="progressi-titolo" className="text-base font-semibold tracking-[-0.005em] text-fg">
         I tuoi progressi
       </h2>
-      <div className="mt-5 grid grid-cols-2 gap-4 sm:gap-6">
+      <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 sm:gap-x-6">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <ProgressRing value={goal ? today / goal : 0} size={52} stroke={5} label={`${fmt.minutes(today)} di studio oggi su un obiettivo di ${fmt.minutes(goal)}`} />
+          <ProgressRing value={goal ? today / goal : 0} size={48} stroke={5} label={`${fmt.minutes(today)} di studio oggi su un obiettivo di ${fmt.minutes(goal)}`} />
           <div className="min-w-0">
-            <div className="text-2xl font-semibold leading-tight tracking-[-0.02em] text-fg">{fmt.minutes(today)}</div>
-            <div className="flex items-center gap-1 text-sm text-fg-muted">
+            <p className="text-xl font-semibold leading-tight tracking-[-0.02em] text-fg sm:text-2xl">{fmt.minutes(today)}</p>
+            <p className="flex items-center gap-1 text-sm leading-snug text-fg-muted">
               {reached && <Check className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden />}
               {reached ? "obiettivo raggiunto" : `oggi, su ${fmt.minutes(goal)}`}
-            </div>
+            </p>
           </div>
         </div>
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-          <span className={cn("grid h-[52px] w-[52px] shrink-0 place-items-center rounded-full border", streakDays > 0 ? "border-azure-400/30 bg-azure-500/[0.08]" : "border-white/[0.08]")} aria-hidden>
+          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-full border", streakDays > 0 ? "border-azure-400/30 bg-azure-500/[0.08]" : "border-white/[0.08]")} aria-hidden>
             <Flame className={cn("h-5 w-5", streakDays > 0 ? "text-azure-300" : "text-fg-subtle")} strokeWidth={1.75} />
           </span>
           <div className="min-w-0">
-            <div className="text-2xl font-semibold leading-tight tracking-[-0.02em] text-fg">
-              {streakDays} {streakDays === 1 ? "giorno" : "giorni"}
-            </div>
-            <div className="text-sm text-fg-muted">{streakDays > 0 ? "di fila" : "nessuna serie attiva"}</div>
+            <p className="text-xl font-semibold leading-tight tracking-[-0.02em] text-fg sm:text-2xl">{streakDays}</p>
+            <p className="text-sm leading-snug text-fg-muted">{streakDays === 1 ? "giorno di fila" : "giorni di fila"}</p>
           </div>
         </div>
       </div>
-      <p className="mt-3 text-xs text-fg-subtle">Una giornata conta per la serie con almeno 10 minuti di studio.</p>
+      <p className="mt-3 max-w-[65ch] text-xs leading-relaxed text-fg-subtle">La serie conta i giorni consecutivi con almeno 10 minuti di studio.</p>
 
       <div className="mt-5 border-t border-white/[0.06] pt-5">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
@@ -160,14 +161,26 @@ export function ProgressPanel({
           </h3>
           {week > 0 && <Legend series={SERIES} />}
         </div>
-        <StackedBars
-          ariaLabel="Minuti di studio per giorno e per materia, ultimi 7 giorni"
-          format={shortMinutes}
-          tickSteps={MINUTE_TICKS}
-          series={SERIES}
-          emptyLabel="La tua prima sessione apparirà qui"
-          data={weekly.map((d) => ({ label: fmt.weekdayShort(d.day), sublabel: capFirst(`${fmt.weekday(d.day)} ${fmt.date(d.day)}`), values: d.values, highlight: d.isToday }))}
-        />
+        {week > 0 ? (
+          // overflow-x-clip: keeps the chart's screen-reader table (wider than a phone) from widening the page.
+          <div className="-mx-2 overflow-x-clip px-2 py-1">
+            <StackedBars
+              ariaLabel="Minuti di studio per giorno e per materia, ultimi 7 giorni"
+              format={shortMinutes}
+              tickSteps={MINUTE_TICKS}
+              series={SERIES}
+              emptyLabel="La tua prima sessione apparirà qui"
+              data={weekly.map((d) => ({ label: fmt.weekdayShort(d.day), sublabel: capFirst(`${fmt.weekday(d.day)} ${fmt.date(d.day)}`), values: d.values, highlight: d.isToday }))}
+            />
+          </div>
+        ) : (
+          <div className="inset-panel flex items-start gap-3 px-4 py-4">
+            <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" aria-hidden />
+            <p className="max-w-[60ch] text-sm leading-relaxed text-fg-muted">
+              Nessuna sessione negli ultimi 7 giorni. Qui vedrai i minuti di studio di ogni giorno, divisi per materia, appena completi una sessione.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -225,10 +238,10 @@ export function ExamsPanel({ now, target }: { now: Date; target: string }) {
 
 // ── Next steps: the remaining suggestions ─────────────────────
 
-export function NextStepsPanel({ tips }: { tips: Suggestion[] }) {
+export function NextStepsPanel({ tips, className }: { tips: Suggestion[]; className?: string }) {
   if (!tips.length) return null;
   return (
-    <section aria-labelledby="poi-titolo" className="card p-5">
+    <section aria-labelledby="poi-titolo" className={cn("card p-5", className)}>
       <SectionTitle id="poi-titolo" title="Dopo, se hai tempo" description="Calcolati dai tuoi risultati e dalle scadenze." className="mb-2" />
       <ul className="-mx-2">
         {tips.map((t) => {
@@ -268,7 +281,7 @@ export function SimulationsPanel({ sims }: { sims: QuizResult[] }) {
         className="mb-3"
         action={
           sims.length ? (
-            <Link href="/quiz/simulazione" className={LINK}>
+            <Link href="/quiz/simulazione" className={HEAD_LINK}>
               Nuova simulazione
             </Link>
           ) : undefined

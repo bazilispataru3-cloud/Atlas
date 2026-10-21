@@ -49,8 +49,9 @@ import { SYLLABUS_SOURCE } from "@/data/syllabus";
 import { useAtlas } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { toast } from "@/components/ui/toast";
-import { addDays, capFirst, cn, fmt, shuffle } from "@/lib/utils";
+import { addDays, capFirst, fmt, shuffle } from "@/lib/utils";
 import { MODE_SEQUENCE, ULTRA_SEQUENCE, ultraKind, type StepKey } from "./paths";
+import { cx } from "./cx";
 
 // The path definitions live in ./paths (no React, no exercises) and are re-exported here for compatibility.
 export { STEP_LABEL, MODE_SEQUENCE, ULTRA_SEQUENCE, ULTRA_RATIONALE, ultraKind, type UltraKind, type StepKey } from "./paths";
@@ -65,6 +66,8 @@ export interface SessionStep {
   toc?: { id: string; title: string }[];
   /** The step ends with a check (quiz, recall, Feynman…): the session can tell "seen" from "verified". */
   check?: boolean;
+  /** The exercise has its own bottom action bar (the quiz runner): the session bar steps aside until it is done. */
+  ownDock?: boolean;
 }
 
 /** Stable context passed to step builders (callbacks must be referentially stable). */
@@ -116,7 +119,7 @@ function ReadSection({ topicId, id, title, children }: { topicId: string; id: st
   const mark = useAtlas((s) => s.markSectionRead);
   return (
     <section id={sectionAnchor(id)} className="scroll-mt-24" aria-labelledby={`${sectionAnchor(id)}-h`}>
-      <h3 id={`${sectionAnchor(id)}-h`} className="text-xl font-semibold leading-snug tracking-[-0.01em] text-fg [text-wrap:balance]">
+      <h3 id={`${sectionAnchor(id)}-h`} tabIndex={-1} className="scroll-mt-24 text-xl font-semibold leading-snug tracking-[-0.01em] text-fg [text-wrap:balance]">
         {title}
       </h3>
       <div className="mt-3">{children}</div>
@@ -126,7 +129,7 @@ function ReadSection({ topicId, id, title, children }: { topicId: string; id: st
           if (!read) mark(topicId, id);
         }}
         aria-pressed={read}
-        className={cn(
+        className={cx(
           "mt-4 inline-flex min-h-11 items-center gap-2 rounded-control border px-3.5 text-ui font-medium transition-colors duration-150 sm:min-h-9",
           read ? "border-success/25 bg-success/[0.06] text-green-300" : "border-white/[0.1] text-fg-muted hover:border-white/[0.18] hover:bg-white/[0.04] hover:text-fg",
         )}
@@ -482,7 +485,8 @@ export function buildSteps(ctx: StepCtx): SessionStep[] {
         technique: "Pratica di recupero",
         icon: <ListChecks className={I} />,
         check: true,
-        render: () => <SessionQuiz ctx={ctx} questions={fallbackQuiz} title={`Quiz · ${ref.topic.title}`} stepId="quiz" />,
+        ownDock: fallbackQuiz.length > 0,
+        render: () => <SessionQuiz ctx={ctx} questions={fallbackQuiz} title={`Quiz: ${ref.topic.title}`} stepId="quiz" />,
       },
     ];
   }
@@ -525,7 +529,7 @@ export function buildSteps(ctx: StepCtx): SessionStep[] {
       </div>
     ) },
     flashcard: { id: "flashcard", title: "Flashcard rapide", technique: "Retrieval", icon: <GalleryVerticalEnd className={I} />, render: () => <FlipCards cards={lesson.flashcards.slice(0, 9)} topicId={ref.topic.id} subject={ref.subject.id} deck={ref.topic.title} /> },
-    quizRapido: { id: "quiz", title: `Quiz rapido (${quick.length} domande)`, technique: "Pratica di recupero", icon: <ListChecks className={I} />, check: true, render: () => <SessionQuiz ctx={ctx} questions={quick} title={`Quiz rapido · ${ref.topic.title}`} stepId="quiz" /> },
+    quizRapido: { id: "quiz", title: `Quiz rapido (${quick.length} domande)`, technique: "Pratica di recupero", icon: <ListChecks className={I} />, check: true, ownDock: quick.length > 0, render: () => <SessionQuiz ctx={ctx} questions={quick} title={`Quiz rapido: ${ref.topic.title}`} stepId="quiz" /> },
     lezione: { id: "lezione", title: "Lezione introduttiva", technique: "Contesto", icon: <BookOpen className={I} />, render: () => (
       <div className="space-y-8">
         <Paragraphs items={lesson.intro} />
@@ -555,7 +559,7 @@ export function buildSteps(ctx: StepCtx): SessionStep[] {
     recall: { id: "recall", title: "Active recall", technique: "Richiamo attivo", icon: <Brain className={I} />, check: true, render: () => <RevealPrompts intro="Rispondi senza guardare la lezione, poi confronta." items={lesson.activeRecall.map((a) => ({ prompt: a.prompt, answer: a.answer }))} onComplete={(s) => ctx.onRecall(s, "recall")} /> },
     cornell: { id: "cornell", title: "Metodo Cornell", technique: "Appunti strutturati", icon: <NotebookPen className={I} />, render: () => <CornellEditor topicId={ref.topic.id} seedCues={lesson.activeRecall.map((a) => a.prompt)} /> },
     problemi: { id: "problemi", title: "Problemi ed esercizi guidati", technique: "Problem solving", icon: <Calculator className={I} />, render: () => <GuidedProblems problems={lesson.guidedProblems} /> },
-    quizProgressivo: { id: "quiz-progressivo", title: "Quiz progressivo", technique: "Pratica di recupero", icon: <ListChecks className={I} />, check: true, render: () => <SessionQuiz ctx={ctx} questions={progressive} title={`Quiz progressivo · ${ref.topic.title}`} variant="progressive" stepId="quiz-progressivo" /> },
+    quizProgressivo: { id: "quiz-progressivo", title: "Quiz progressivo", technique: "Pratica di recupero", icon: <ListChecks className={I} />, check: true, ownDock: progressive.length > 0, render: () => <SessionQuiz ctx={ctx} questions={progressive} title={`Quiz progressivo: ${ref.topic.title}`} variant="progressive" stepId="quiz-progressivo" /> },
     lacune: { id: "lacune", title: "Analisi delle lacune", technique: "Metacognizione", icon: <Search className={I} />, render: () => <GapAnalysis ctx={ctx} /> },
     attivazione: { id: "attivazione", title: "Attivazione: cosa sai già?", technique: "Pre-test", icon: <Lightbulb className={I} />, render: () => (
       <div className="space-y-6">
@@ -588,7 +592,7 @@ export function buildSteps(ctx: StepCtx): SessionStep[] {
         <MemoryPalace topicId={ref.topic.id} />
       </div>
     ) },
-    interleaving: { id: "interleaving", title: "Interleaving: pratica mista", technique: "Interleaving", icon: <Shuffle className={I} />, check: true, render: () => (
+    interleaving: { id: "interleaving", title: "Interleaving: pratica mista", technique: "Interleaving", icon: <Shuffle className={I} />, check: mixed.length > 0, ownDock: mixed.length > 0, render: () => (
       <div className="space-y-4">
         <p className="max-w-[68ch] text-base leading-relaxed text-fg-reading">Domande dell’argomento alternate a domande di altri argomenti: prima di rispondere chiediti «che tipo di problema è?».</p>
         <QuizRunner questions={mixed} title="Pratica mista" onFinish={(o) => ctx.onQuiz(o, "Pratica mista (interleaving)", "interleaving")} />
