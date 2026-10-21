@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, FlaskConical, GraduationCap, Info, XCircle } from "lucide-react";
-import { TECHNIQUES, MODE_INFO, type Goal } from "@/data/academy";
+import { ExternalLink, XCircle } from "lucide-react";
+import { type Technique } from "@/data/academy";
 import { TechniqueArt } from "./technique-art";
-import { Badge, Card, PageHeader, Segmented } from "@/components/ui/primitives";
-import { MODE_TONE } from "@/components/ui/tone";
-import type { Tone } from "@/components/ui/tone";
+import { ACADEMY_GROUPS, ACADEMY_ORDER, STARTER_IDS } from "./guide";
+import { Badge, Button, PageHeader } from "@/components/ui/primitives";
+import { TONE, type Tone } from "@/components/ui/tone";
+import { useDueCards, useHydrated } from "@/lib/hooks";
+import { useAtlas } from "@/lib/store";
+import { cn, pluralize } from "@/lib/utils";
 
 export const EVIDENCE_TONE: Record<"alta" | "moderata" | "limitata" | "indiretta", Tone> = {
   alta: "success",
@@ -16,7 +18,15 @@ export const EVIDENCE_TONE: Record<"alta" | "moderata" | "limitata" | "indiretta
   indiretta: "muted",
 };
 
-const GOALS: (Goal | "tutti")[] = ["tutti", "comprensione", "memorizzazione", "problem solving", "esposizione orale"];
+/** Evidence level as a coloured dot plus words (never colour alone). */
+export function EvidenceLevel({ level, className }: { level: Technique["evidence"]["level"]; className?: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 text-xs text-fg-muted", className)}>
+      <span className={cn("h-2 w-2 shrink-0 rounded-full", TONE[EVIDENCE_TONE[level]].dot)} aria-hidden />
+      Evidenza {level}
+    </span>
+  );
+}
 
 /** Common beliefs that the research does not support (with sources). */
 const MYTHS = [
@@ -37,72 +47,145 @@ const MYTHS = [
   },
 ];
 
+/** What the student has already done with a technique, read from their own data. */
+function useTechniqueStatus(): Record<string, string> {
+  const hydrated = useHydrated();
+  const feynman = useAtlas((s) => s.feynman);
+  const palaces = useAtlas((s) => s.palaces);
+  const cornell = useAtlas((s) => s.cornell);
+  const cards = useAtlas((s) => s.cards);
+  const due = useDueCards();
+  if (!hydrated) return {};
+  const out: Record<string, string> = {};
+  const lastFeynman = feynman.at(-1);
+  if (lastFeynman) out.feynman = `Ultima spiegazione: ${lastFeynman.score}/100`;
+  const loci = Math.max(0, ...palaces.map((p) => p.placements.length));
+  if (loci > 0) out["palazzo-memoria"] = `Il tuo palazzo ha ${pluralize(loci, "luogo", "luoghi")}`;
+  const notes = Object.keys(cornell).length;
+  if (notes > 0) out.cornell = `Note Cornell su ${pluralize(notes, "argomento", "argomenti")}`;
+  if (cards.length > 0) out["spaced-repetition"] = due.length ? `${pluralize(due.length, "flashcard", "flashcard")} da ripassare oggi` : "Nessuna flashcard in scadenza oggi";
+  return out;
+}
+
+function TechniqueCard({ t, status }: { t: Technique; status?: string }) {
+  const starter = STARTER_IDS.includes(t.id);
+  return (
+    <li className="min-w-0">
+      <Link
+        href={`/academy/${t.id}`}
+        className="card card-hover group flex h-full flex-col rounded-card"
+      >
+        <div className="aspect-[16/9] overflow-hidden rounded-t-card border-b border-white/[0.06] bg-ink-900/70">
+          <TechniqueArt icon={t.icon} className="h-full w-full" />
+        </div>
+        <div className="flex flex-1 flex-col p-5">
+          {starter && (
+            <Badge tone="azure" className="mb-2.5 self-start">
+              Consigliata per iniziare
+            </Badge>
+          )}
+          <h3 className="text-lg font-semibold tracking-[-0.01em] text-fg text-balance">{t.name}</h3>
+          <p className="mt-1 max-w-[52ch] text-sm leading-relaxed text-fg-muted">{t.tagline}</p>
+          <div className="mt-auto flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-4">
+            <EvidenceLevel level={t.evidence.level} />
+            {status && <span className="text-xs text-azure-300">{status}</span>}
+          </div>
+        </div>
+      </Link>
+    </li>
+  );
+}
+
 export function AcademyIndex() {
-  const [goal, setGoal] = useState<Goal | "tutti">("tutti");
-  const list = TECHNIQUES.filter((t) => goal === "tutti" || t.goals.includes(goal));
+  const status = useTechniqueStatus();
+  const byId = new Map(ACADEMY_ORDER.map((t) => [t.id, t]));
+
   return (
     <div className="pb-16">
       <PageHeader
-        eyebrow={<span className="flex items-center gap-2"><GraduationCap className="h-3.5 w-3.5" /> Study Academy</span>}
-        title={<>Impara a studiare, <span className="italic text-gradient-azure">con le prove</span>.</>}
-        description="Ogni tecnica ha una pagina con principi cognitivi, tutorial, esempio universitario, esercizio interattivo, limiti e fonti scientifiche verificabili. Il livello di evidenza indica quanto è solida la ricerca, non quanto la tecnica è «di moda»."
+        title="Impara a studiare con metodo"
+        description="Undici tecniche spiegate passo per passo, ognuna con un esercizio sulle lezioni di ATLAS. Per ciascuna trovi quanto è solida la ricerca che la sostiene."
+        actions={
+          <Button variant="primary" size="lg" href="/academy/active-recall">
+            Inizia da Active Recall
+          </Button>
+        }
       />
 
-      <div className="mt-8 flex flex-wrap items-center gap-3">
-        <Segmented
-          value={goal}
-          onChange={setGoal}
-          options={GOALS.map((g) => ({ value: g, label: g === "tutti" ? "Tutte" : g.charAt(0).toUpperCase() + g.slice(1) }))}
-        />
-        <span className="flex items-center gap-1.5 text-[12px] text-fg-subtle">
-          <Info className="h-3.5 w-3.5" /> Evidenza:
-          <Badge tone="success">alta</Badge>
-          <Badge tone="azure">moderata</Badge>
-          <Badge tone="warning">limitata</Badge>
-          <Badge tone="muted">indiretta</Badge>
-        </span>
+      <div className="mt-8 flex flex-col gap-4 border-y border-white/[0.07] py-4 lg:flex-row lg:items-center lg:justify-between">
+        <nav aria-label="Obiettivi">
+          <ul className="flex flex-wrap gap-2">
+            {ACADEMY_GROUPS.map((g) => (
+              <li key={g.id}>
+                <a
+                  href={`#${g.id}`}
+                  className="inline-flex min-h-10 items-center gap-2 rounded-control border border-white/[0.09] bg-white/[0.03] px-3.5 text-ui font-medium text-fg-muted transition-colors duration-150 hover:border-white/[0.16] hover:text-fg"
+                >
+                  {g.label}
+                  <span className="text-xs tabular-nums text-fg-subtle">{g.ids.length}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-muted">
+          <span>Quanto è solida la ricerca:</span>
+          {(["alta", "moderata", "limitata", "indiretta"] as const).map((l) => (
+            <span key={l} className="inline-flex items-center gap-1.5">
+              <span className={cn("h-2 w-2 rounded-full", TONE[EVIDENCE_TONE[l]].dot)} aria-hidden />
+              {l}
+            </span>
+          ))}
+        </p>
       </div>
 
-      <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {list.map((t) => (
-          <Card key={t.id} hover className="group flex flex-col overflow-hidden">
-            <Link href={`/academy/${t.id}`} className="absolute inset-0 z-10 rounded-[inherit]" aria-label={`Apri ${t.name}`} />
-            <div className="relative aspect-[16/9] border-b border-white/[0.06] bg-ink-900">
-              <TechniqueArt icon={t.icon} className="h-full w-full" />
-              <span className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-full bg-black/40 text-fg-subtle backdrop-blur transition group-hover:text-fg">
-                <ArrowUpRight className="h-4 w-4" />
-              </span>
+      <div className="mt-10 space-y-14">
+        {ACADEMY_GROUPS.map((g) => (
+          <section key={g.id} id={g.id} aria-labelledby={`${g.id}-title`} className="scroll-mt-20 lg:grid lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] lg:gap-10">
+            <div className="mb-5 lg:mb-0 lg:pt-1">
+              <h2 id={`${g.id}-title`} className="text-xl font-semibold tracking-[-0.01em] text-fg">
+                {g.title}
+              </h2>
+              <p className="mt-1.5 max-w-[48ch] text-sm leading-relaxed text-fg-muted">{g.description}</p>
             </div>
-            <div className="flex flex-1 flex-col p-5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Badge tone={EVIDENCE_TONE[t.evidence.level]}>Evidenza {t.evidence.level}</Badge>
-                {t.modes.map((m) => (
-                  <Badge key={m} tone={MODE_TONE[m]}>{MODE_INFO[m].name.split(" ")[0]}</Badge>
-                ))}
-              </div>
-              <h2 className="mt-3 text-[17px] font-semibold text-fg">{t.name}</h2>
-              <p className="mt-1 text-[13.5px] leading-relaxed text-fg-muted">{t.tagline}</p>
-              <div className="mt-auto pt-4 text-[12px] text-fg-subtle">Per: {t.goals.join(" · ")}</div>
-            </div>
-          </Card>
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {g.ids.map((id) => {
+                const t = byId.get(id);
+                return t ? <TechniqueCard key={id} t={t} status={status[id]} /> : null;
+              })}
+            </ul>
+          </section>
         ))}
       </div>
 
-      <section className="mt-14">
-        <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold text-fg"><FlaskConical className="h-4 w-4 text-fg-subtle" /> Tre convinzioni diffuse che la ricerca non conferma</h2>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {MYTHS.map((m) => (
-            <Card key={m.myth} className="p-5">
-              <div className="flex gap-2 text-[14px] font-medium text-fg">
-                <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /> «{m.myth}»
-              </div>
-              <p className="mt-2 text-[13px] leading-relaxed text-fg-muted">{m.fact}</p>
-              <a href={`https://doi.org/${m.source.doi}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[12px] text-azure-300 hover:underline">
-                {m.source.label} · doi:{m.source.doi}
-              </a>
-            </Card>
-          ))}
+      <section aria-labelledby="miti-title" className="mt-16 border-t border-white/[0.07] pt-10 lg:grid lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] lg:gap-10">
+        <div className="mb-5 lg:mb-0">
+          <h2 id="miti-title" className="text-xl font-semibold tracking-[-0.01em] text-fg">
+            Tre convinzioni che la ricerca non conferma
+          </h2>
+          <p className="mt-1.5 max-w-[48ch] text-sm leading-relaxed text-fg-muted">Abitudini diffuse tra gli studenti che fanno sentire preparati più di quanto si è.</p>
         </div>
+        <ul className="divide-y divide-white/[0.07]">
+          {MYTHS.map((m) => (
+            <li key={m.myth} className="flex gap-3 py-5 first:pt-0 last:pb-0">
+              <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-fg-subtle" aria-hidden />
+              <div className="min-w-0">
+                <p className="max-w-[65ch] text-base font-medium text-fg">«{m.myth}»</p>
+                <p className="mt-1.5 max-w-[65ch] text-sm leading-relaxed text-fg-muted">{m.fact}</p>
+                <a
+                  href={`https://doi.org/${m.source.doi}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-sm text-azure-300 hover:text-azure-200 hover:underline sm:min-h-8"
+                >
+                  {m.source.label}, leggi lo studio
+                  <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                  <span className="sr-only">(si apre in una nuova scheda)</span>
+                </a>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

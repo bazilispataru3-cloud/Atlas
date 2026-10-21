@@ -421,7 +421,7 @@ export function StartStudyModal() {
             {lessonReady ? (
               <div role="radiogroup" aria-label="Modalità di studio" className="grid gap-2.5 md:grid-cols-3 md:gap-3">
                 {MODES.map((m) => (
-                  <ModeCard key={m} mode={m} selected={mode === m} onSelect={() => setMode(m)} onConfirm={start} layout="responsive" name="start-mode" ultraKind={ultraKind(topicRef)} />
+                  <ModeCard key={m} mode={m} selected={mode === m} onSelect={() => setMode(m)} onConfirm={start} layout="responsive" name="start-mode" ultraKind={ultraKind(topicRef)} bandArt={false} />
                 ))}
               </div>
             ) : (

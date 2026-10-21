@@ -1,206 +1,567 @@
 "use client";
 
-import { useId, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 import type { Technique } from "@/data/academy";
 import { cn } from "@/lib/utils";
 
-// Original animated illustrations for the Study Academy (one per technique).
-// Animations are pure CSS and respect the reduced-motion settings.
+/**
+ * Study Academy illustrations, one per technique, drawn with the real content
+ * of the examples (Krebs, buffers, fluids). Every drawing is split into layers
+ * that match the steps of the tutorial:
+ * - without `step` the full drawing is static; inside a `.group` (an index card)
+ *   its strokes draw once on hover or keyboard focus, never in a loop;
+ * - with `step` the layers before it are dimmed, the current one is drawn once
+ *   and the next ones stay as a faint preview.
+ * Motion is CSS only, so the global reduced-motion rules switch it off.
+ */
 
-const A = "#56a6ff"; // azure
-const G = "#efc55c"; // gold
-const F = "#a6a6b3"; // muted
+const AZ = "#3d8bff"; // azure-400
+const AZL = "#8db9ff"; // azure-300
+const FG = "#eceef3";
+const MU = "#a7adbb";
+const SUB = "#868d9e";
+const LN = "rgba(196,210,255,0.2)";
+const FILL = "rgba(196,210,255,0.035)";
+const SURF = "#11141a";
+const OK = "#4ade80";
+const WARN = "#fb923c";
+const WARN_TEXT = "#fdba74";
 
-const draw = (len: number, dur = 2.4, delay = 0): CSSProperties => ({
-  strokeDasharray: len,
-  ["--len" as string]: len,
-  animation: `atlas-draw ${dur}s ease-out ${delay}s infinite alternate`,
-});
-const glow = (dur = 2.4, delay = 0): CSSProperties => ({ animation: `atlas-glow ${dur}s ease-in-out ${delay}s infinite` });
-const rise = (dur = 4, delay = 0): CSSProperties => ({ animation: `atlas-rise ${dur}s ease-in-out ${delay}s infinite`, transformBox: "fill-box" });
-const walk = (path: string, dur = 6, delay = 0): CSSProperties => ({ offsetPath: `path("${path}")`, animation: `atlas-walk ${dur}s linear ${delay}s infinite` });
+const CSS = `
+.ta-step .ta-current .ta-draw{animation:atlas-draw .8s cubic-bezier(.22,1,.36,1) backwards}
+.group:hover .ta-hover .ta-draw,.group:focus-visible .ta-hover .ta-draw,.group:focus-within .ta-hover .ta-draw{animation:atlas-draw .9s cubic-bezier(.22,1,.36,1) backwards}
+`;
 
-function Frame({ children, className }: { children: ReactNode; className?: string }) {
-  const id = `ta-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+const StepCtx = createContext<number | undefined>(undefined);
+
+/** One step of the drawing. */
+function L({ i, children }: { i: number; children: ReactNode }) {
+  const step = useContext(StepCtx);
+  if (step === undefined) return <g>{children}</g>;
+  const state = i < step ? "done" : i === step ? "current" : "next";
   return (
-    <svg viewBox="0 0 320 180" className={cn("h-full w-full", className)} aria-hidden>
-      <defs>
-        <radialGradient id={id} cx="0.7" cy="0.2" r="0.9">
-          <stop offset="0" stopColor={A} stopOpacity="0.16" />
-          <stop offset="1" stopColor={A} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width="320" height="180" fill={`url(#${id})`} />
+    <g
+      className={cn("transition-opacity duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)]", state === "current" && "ta-current")}
+      style={{ opacity: state === "next" ? 0.1 : state === "done" ? 0.5 : 1 }}
+    >
       {children}
-    </svg>
+    </g>
   );
 }
 
+function T({
+  x,
+  y,
+  children,
+  size = 11,
+  anchor = "start",
+  fill = MU,
+  weight,
+}: {
+  x: number;
+  y: number;
+  children: ReactNode;
+  size?: number;
+  anchor?: "start" | "middle" | "end";
+  fill?: string;
+  weight?: number;
+}) {
+  return (
+    <text x={x} y={y} fontSize={size} textAnchor={anchor} fill={fill} fontWeight={weight}>
+      {children}
+    </text>
+  );
+}
+
+/** A stroke that draws itself (once) when its step becomes current or the card is hovered. */
+function Draw({ d, len, stroke = AZ, width = 1.6, dash, fill = "none" }: { d: string; len: number; stroke?: string; width?: number; dash?: string; fill?: string }) {
+  if (dash) return <path d={d} fill={fill} stroke={stroke} strokeWidth={width} strokeDasharray={dash} strokeLinecap="round" strokeLinejoin="round" />;
+  return (
+    <path
+      d={d}
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={width}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="ta-draw"
+      style={{ strokeDasharray: len, ["--len" as string]: len }}
+    />
+  );
+}
+
+function Box({ x, y, w, h, rx = 8, stroke = LN, fill = FILL, dash }: { x: number; y: number; w: number; h: number; rx?: number; stroke?: string; fill?: string; dash?: string }) {
+  return <rect x={x} y={y} width={w} height={h} rx={rx} fill={fill} stroke={stroke} strokeDasharray={dash} />;
+}
+
+function Check({ x, y, color = OK }: { x: number; y: number; color?: string }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r="7.5" fill={color} fillOpacity="0.16" stroke={color} strokeOpacity="0.8" />
+      <path d={`M${x - 3.2} ${y + 0.2} l2.2 2.3 l4.2 -4.6`} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+function Cross({ x, y, color = WARN }: { x: number; y: number; color?: string }) {
+  return (
+    <g>
+      <circle cx={x} cy={y} r="7.5" fill={color} fillOpacity="0.16" stroke={color} strokeOpacity="0.8" />
+      <path d={`M${x - 2.6} ${y - 2.6} l5.2 5.2 M${x + 2.6} ${y - 2.6} l-5.2 5.2`} stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+    </g>
+  );
+}
+
+function Arrowhead({ x, y, dir, color = AZ }: { x: number; y: number; dir: "r" | "l" | "d" | "u"; color?: string }) {
+  const d = {
+    r: `M${x - 6} ${y - 4} L${x} ${y} L${x - 6} ${y + 4}`,
+    l: `M${x + 6} ${y - 4} L${x} ${y} L${x + 6} ${y + 4}`,
+    d: `M${x - 4} ${y - 6} L${x} ${y} L${x + 4} ${y - 6}`,
+    u: `M${x - 4} ${y + 6} L${x} ${y} L${x + 4} ${y + 6}`,
+  }[dir];
+  return <path d={d} fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />;
+}
+
+// ── Feynman: choose → explain → find the gap → back to the source → simplify ──
 function Feynman() {
   return (
-    <Frame>
-      <rect x="28" y="34" width="150" height="82" rx="16" fill="none" stroke={F} strokeOpacity="0.35" />
-      {[54, 72, 90].map((y, i) => (
-        <line key={y} x1="46" y1={y} x2={150 - i * 22} y2={y} stroke={F} strokeOpacity="0.5" strokeWidth="5" strokeLinecap="round" style={draw(120, 2.2, i * 0.3)} />
-      ))}
-      <path d="M190 75 h34" stroke={A} strokeWidth="2" style={glow(2)} />
-      <path d="M216 68 l10 7 -10 7" fill="none" stroke={A} strokeWidth="2" />
-      <rect x="236" y="48" width="64" height="54" rx="14" fill={A} fillOpacity="0.12" stroke={A} strokeOpacity="0.6" />
-      <line x1="250" y1="68" x2="286" y2="68" stroke={A} strokeWidth="5" strokeLinecap="round" />
-      <line x1="250" y1="84" x2="274" y2="84" stroke={A} strokeWidth="5" strokeLinecap="round" />
-      <circle cx="126" cy="128" r="9" fill={G} style={glow(1.6)} />
-      <text x="126" y="132" textAnchor="middle" fontSize="11" fontWeight="700" fill="#140f04">?</text>
-      <text x="142" y="150" fontSize="10" fill={G} fillOpacity="0.8">lacuna trovata</text>
-    </Frame>
+    <>
+      <L i={0}>
+        <Box x={16} y={16} w={124} h={64} rx={10} />
+        <T x={28} y={34} fill={SUB}>Metabolismo</T>
+        <rect x={28} y={44} width={100} height={26} rx={13} fill={AZ} fillOpacity="0.14" stroke={AZ} strokeOpacity="0.7" />
+        <T x={78} y={61} anchor="middle" fill={FG}>Ciclo di Krebs</T>
+      </L>
+      <L i={1}>
+        <Box x={150} y={16} w={154} h={78} rx={10} />
+        <T x={162} y={37} fill={FG}>L’acetil-CoA entra</T>
+        <T x={162} y={54} fill={FG}>nel ciclo e libera</T>
+        <T x={162} y={71} fill={FG}>NADH, FADH₂, CO₂</T>
+        <rect x={28} y={104} width={34} height={44} rx={4} fill={FILL} stroke={MU} strokeOpacity="0.7" />
+        <line x1={34} y1={104} x2={34} y2={148} stroke={MU} strokeOpacity="0.7" />
+        <T x={70} y={130} fill={SUB}>libro chiuso</T>
+      </L>
+      <L i={2}>
+        <path d="M162 76 q4 4 8 0 t8 0 t8 0 t8 0" fill="none" stroke={WARN} strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx={292} cy={30} r={9} fill={WARN} fillOpacity="0.2" stroke={WARN} />
+        <T x={292} y={34} anchor="middle" fill={WARN_TEXT} weight={700}>?</T>
+        <T x={150} y={108} fill={WARN_TEXT}>Lacuna: perché serve l’O₂?</T>
+      </L>
+      <L i={3}>
+        <Draw d="M64 140 C104 150 132 128 158 116" len={110} />
+        <Arrowhead x={158} y={116} dir="r" />
+        <T x={28} y={166} fill={SUB}>torna alla fonte</T>
+      </L>
+      <L i={4}>
+        <Box x={166} y={122} w={138} h={46} rx={10} stroke={AZ} fill="rgba(61,139,255,0.08)" />
+        <T x={176} y={141} fill={FG}>Senza O₂ il NADH</T>
+        <T x={176} y={158} fill={FG}>non si riossida</T>
+        <Check x={292} y={134} />
+      </L>
+    </>
   );
 }
+
+// ── Memory palace: the same house and route as the exercise ──
+const PAL_ROOMS = [
+  { x: 16, y: 20, name: "Cucina" },
+  { x: 82, y: 20, name: "Studio" },
+  { x: 148, y: 20, name: "Balcone" },
+  { x: 16, y: 90, name: "Ingresso" },
+  { x: 82, y: 90, name: "Soggiorno" },
+  { x: 148, y: 90, name: "Camera" },
+];
+const PAL_DOTS: [number, number][] = [
+  [38, 142],
+  [60, 56],
+  [115, 56],
+  [115, 128],
+  [181, 128],
+  [181, 56],
+];
 
 function Palace() {
-  const route = "M60 140 L60 60 L160 60 L160 120 L260 120 L260 40";
   return (
-    <Frame>
-      {[[30, 30, 90, 70], [120, 30, 80, 70], [210, 20, 90, 60], [30, 100, 90, 60], [120, 100, 80, 60], [210, 80, 90, 80]].map(([x, y, w, h], i) => (
-        <rect key={i} x={x} y={y} width={w} height={h} rx="8" fill="none" stroke={F} strokeOpacity="0.25" />
-      ))}
-      <path d={route} fill="none" stroke={A} strokeOpacity="0.4" strokeDasharray="4 6" strokeWidth="2" />
-      {[[60, 60], [160, 60], [160, 120], [260, 120], [260, 40]].map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r="7" fill={G} fillOpacity="0.25" stroke={G} style={glow(2.5, i * 0.5)} />
-      ))}
-      <circle r="5" fill={A} style={walk(route, 6)} />
-    </Frame>
+    <>
+      <L i={0}>
+        {PAL_ROOMS.map((r) => (
+          <g key={r.name}>
+            <rect x={r.x} y={r.y} width={66} height={70} fill={FILL} stroke={LN} />
+            <T x={r.x + 6} y={r.y + 15} fill={SUB}>{r.name}</T>
+          </g>
+        ))}
+      </L>
+      <L i={1}>
+        <Draw d="M38 142 H60 V56 H115 V128 H181 V56" len={420} stroke={AZL} />
+        {PAL_DOTS.map(([x, y], i) => (
+          <g key={i}>
+            <circle cx={x} cy={y} r={9} fill={SURF} stroke={AZL} />
+            <T x={x} y={y + 4} anchor="middle" fill={FG} size={11}>{i + 1}</T>
+          </g>
+        ))}
+      </L>
+      <L i={2}>
+        <Box x={226} y={20} w={80} h={62} rx={10} stroke={AZ} fill="rgba(61,139,255,0.08)" />
+        <T x={234} y={38} fill={SUB}>citrato =</T>
+        <T x={234} y={55} fill={FG}>due ospiti</T>
+        <T x={234} y={71} fill={FG}>e un limone</T>
+      </L>
+      <L i={3}>
+        {PAL_DOTS.slice(0, 3).map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r={9} fill={AZ} fillOpacity="0.35" stroke={AZ} />
+        ))}
+        <T x={226} y={106} fill={FG}>1 citrato</T>
+        <T x={226} y={124} fill={FG}>2 CO₂ × 2</T>
+        <T x={226} y={142} fill={FG}>3 NADH × 3</T>
+      </L>
+      <L i={4}>
+        <Check x={296} y={102} />
+        <Check x={296} y={120} />
+        <circle cx={296} cy={138} r={7.5} fill="none" stroke={MU} strokeDasharray="2 2" />
+        <T x={306} y={174} anchor="end" fill={SUB}>ripercorri a memoria</T>
+      </L>
+    </>
   );
 }
 
+// ── Active recall: study a block → close → recall → compare → repeat ──
 function Recall() {
   return (
-    <Frame>
-      <path d="M95 60 C95 30 150 25 160 45 C175 25 225 35 220 65 C240 80 225 115 200 112 C190 135 140 135 130 115 C100 120 80 90 95 60Z" fill={A} fillOpacity="0.08" stroke={A} strokeOpacity="0.6" />
-      <path d="M160 45 C150 70 170 85 160 112" fill="none" stroke={A} strokeOpacity="0.35" />
-      {[0, 1, 2].map((i) => (
-        <g key={i} style={rise(3.6, i * 1.2)}>
-          <rect x={235 + i * 6} y={50 + i * 22} width="58" height="16" rx="8" fill={G} fillOpacity="0.15" stroke={G} strokeOpacity="0.7" />
-        </g>
-      ))}
-      <text x="160" y="160" textAnchor="middle" fontSize="11" fill={F}>recuperare rafforza la traccia</text>
-    </Frame>
+    <>
+      <L i={0}>
+        <Box x={16} y={18} w={126} h={142} />
+        <T x={28} y={38} fill={FG} size={12} weight={600}>Tamponi</T>
+        <rect x={22} y={46} width={114} height={54} rx={6} fill="rgba(61,139,255,0.08)" stroke={AZ} strokeOpacity="0.6" />
+        <T x={28} y={63} fill={MU}>pH = pKa + log…</T>
+        <T x={28} y={79} fill={MU}>bicarbonato</T>
+        <T x={28} y={94} fill={MU}>pKa 6,1</T>
+        <T x={28} y={122} fill={SUB}>capacità</T>
+        <T x={28} y={138} fill={SUB}>tamponante…</T>
+      </L>
+      <L i={1}>
+        <rect x={16} y={18} width={126} height={142} rx={8} fill={SURF} fillOpacity="0.94" stroke={LN} />
+        <path d="M66 82 c8 -8 18 -8 26 0 c-8 8 -18 8 -26 0 z M64 92 l30 -22" fill="none" stroke={MU} strokeWidth="1.5" strokeLinecap="round" />
+        <T x={79} y={112} anchor="middle" fill={SUB}>fonti chiuse</T>
+      </L>
+      <L i={2}>
+        <Box x={156} y={18} w={148} h={98} stroke={AZ} fill="rgba(61,139,255,0.06)" />
+        <T x={168} y={36} fill={SUB}>A memoria</T>
+        <T x={168} y={56} fill={FG}>pH = pKa + log(A⁻/HA)</T>
+        <T x={168} y={76} fill={FG}>pKa 7,4</T>
+        <T x={168} y={96} fill={FG}>sistema aperto</T>
+      </L>
+      <L i={3}>
+        <Check x={296} y={52} />
+        <line x1={166} y1={72} x2={210} y2={72} stroke={WARN} strokeWidth="1.6" />
+        <T x={218} y={76} fill={WARN_TEXT}>→ 6,1</T>
+        <Check x={296} y={92} />
+      </L>
+      <L i={4}>
+        {["oggi", "+1", "+3", "+7"].map((d, i) => (
+          <g key={d}>
+            <rect x={156 + i * 38} y={130} width={34} height={24} rx={6} fill={i === 0 ? AZ : FILL} fillOpacity={i === 0 ? 0.3 : 1} stroke={i === 0 ? AZ : LN} />
+            <T x={173 + i * 38} y={146} anchor="middle" fill={FG}>{d}</T>
+          </g>
+        ))}
+        <T x={156} y={172} fill={SUB}>giorni di ripasso</T>
+      </L>
+    </>
   );
 }
 
+// ── Spaced repetition: forgetting curve → reviews → honest rating → every day ──
 function Spacing() {
-  const curves = ["M30 40 C60 110 80 130 110 138", "M110 40 C150 90 175 110 205 118", "M205 40 C250 70 270 80 300 86"];
   return (
-    <Frame>
-      <line x1="30" y1="150" x2="300" y2="150" stroke={F} strokeOpacity="0.4" />
-      <line x1="30" y1="30" x2="30" y2="150" stroke={F} strokeOpacity="0.4" />
-      {curves.map((d, i) => (
-        <path key={i} d={d} fill="none" stroke={A} strokeWidth="2.5" style={draw(140, 1.8, i * 0.6)} />
-      ))}
-      {[110, 205].map((x, i) => (
-        <g key={x}>
-          <line x1={x} y1="40" x2={x} y2="150" stroke={G} strokeOpacity="0.5" strokeDasharray="3 4" />
-          <circle cx={x} cy="40" r="5" fill={G} style={glow(2, i * 0.6)} />
+    <>
+      <line x1={24} y1={140} x2={304} y2={140} stroke={LN} />
+      <line x1={24} y1={20} x2={24} y2={140} stroke={LN} />
+      <T x={30} y={18} fill={SUB}>ricordo</T>
+      <L i={0}>
+        <path d="M24 26 C52 104 96 128 300 134" fill="none" stroke={MU} strokeWidth="1.5" strokeDasharray="4 4" />
+        <T x={300} y={126} anchor="end" fill={SUB}>senza ripasso</T>
+      </L>
+      <L i={1}>
+        <Draw d="M24 26 C36 66 48 78 62 82 L62 26 C84 58 104 66 124 68 L124 26 C164 46 194 50 222 52 L222 26 C256 34 282 37 304 39" len={560} />
+        {[62, 124, 222].map((x) => (
+          <circle key={x} cx={x} cy={26} r={3.5} fill={AZ} />
+        ))}
+        <T x={62} y={156} anchor="middle" fill={SUB}>1</T>
+        <T x={124} y={156} anchor="middle" fill={SUB}>3</T>
+        <T x={222} y={156} anchor="middle" fill={SUB}>7</T>
+        <T x={304} y={156} anchor="end" fill={SUB}>giorni</T>
+      </L>
+      <L i={2}>
+        {["Difficile", "Buono", "Facile"].map((r, i) => (
+          <g key={r}>
+            <rect x={150 + i * 52} y={84} width={48} height={22} rx={6} fill={i === 0 ? AZ : FILL} fillOpacity={i === 0 ? 0.3 : 1} stroke={i === 0 ? AZ : LN} />
+            <T x={174 + i * 52} y={99} anchor="middle" fill={FG}>{r}</T>
+          </g>
+        ))}
+      </L>
+      <L i={3}>
+        {Array.from({ length: 9 }, (_, i) => (
+          <rect key={i} x={24 + i * 11} y={164} width={8} height={8} rx={2} fill={AZ} fillOpacity={0.35 + i * 0.07} />
+        ))}
+        <T x={130} y={172} fill={SUB}>15–20 minuti ogni giorno</T>
+      </L>
+    </>
+  );
+}
+
+// ── Interleaving: blocked → mixed → classify first → learn from the error ──
+const TILE_FILL: Record<string, [string, number]> = { C: [AZ, 0.5], B: [AZL, 0.28], P: [MU, 0.18] };
+
+function Tiles({ row, y }: { row: string; y: number }) {
+  return (
+    <>
+      {row.split("").map((c, i) => (
+        <g key={i}>
+          <rect x={16 + i * 32} y={y} width={26} height={26} rx={6} fill={TILE_FILL[c][0]} fillOpacity={TILE_FILL[c][1]} stroke={TILE_FILL[c][0]} strokeOpacity="0.6" />
+          <T x={29 + i * 32} y={y + 17} anchor="middle" fill={FG} weight={600}>{c}</T>
         </g>
       ))}
-      <text x="36" y="168" fontSize="10" fill={F}>ripassi a intervalli crescenti</text>
-    </Frame>
+    </>
   );
 }
 
 function Interleaving() {
-  const colors = [A, G, "#9085e9"];
-  const blocked = [0, 0, 0, 1, 1, 1, 2, 2, 2];
-  const mixed = [0, 1, 2, 1, 0, 2, 2, 0, 1];
   return (
-    <Frame>
-      <text x="30" y="46" fontSize="10" fill={F}>a blocchi</text>
-      {blocked.map((c, i) => <rect key={i} x={30 + i * 30} y="54" width="24" height="24" rx="6" fill={colors[c]} fillOpacity="0.35" />)}
-      <text x="30" y="112" fontSize="10" fill={F}>alternato</text>
-      {mixed.map((c, i) => <rect key={i} x={30 + i * 30} y="120" width="24" height="24" rx="6" fill={colors[c]} fillOpacity="0.7" style={glow(2.6, i * 0.2)} />)}
-    </Frame>
+    <>
+      <T x={16} y={18} fill={SUB}>C continuità, B Bernoulli, P Poiseuille</T>
+      <L i={0}>
+        <T x={16} y={40} fill={MU}>A blocchi</T>
+        <Tiles row="CCCBBBPPP" y={46} />
+      </L>
+      <L i={1}>
+        <T x={16} y={98} fill={MU}>Mescolati</T>
+        <Tiles row="CBPBCPPCB" y={104} />
+      </L>
+      <L i={2}>
+        <rect x={77} y={101} width={32} height={32} rx={8} fill="none" stroke={AZL} strokeWidth="2" />
+        <T x={16} y={154} fill={FG}>Raggio e Δp: prima riconosci Poiseuille</T>
+      </L>
+      <L i={3}>
+        <Cross x={135} y={104} />
+        <T x={16} y={172} fill={WARN_TEXT}>Errore utile: la sezione cambiava</T>
+      </L>
+    </>
   );
 }
 
+// ── Dual coding: words → drawing → labels → redraw from memory ──
 function Dual() {
   return (
-    <Frame>
-      <rect x="30" y="40" width="110" height="100" rx="14" fill="none" stroke={F} strokeOpacity="0.4" />
-      {[60, 78, 96, 114].map((y, i) => <line key={y} x1="46" y1={y} x2={120 - (i % 2) * 20} y2={y} stroke={F} strokeOpacity="0.5" strokeWidth="5" strokeLinecap="round" />)}
-      <rect x="180" y="40" width="110" height="100" rx="14" fill={A} fillOpacity="0.08" stroke={A} strokeOpacity="0.5" />
-      <ellipse cx="235" cy="90" rx="38" ry="24" fill="none" stroke={A} strokeWidth="2" />
-      <path d="M205 90 q8 -16 15 0 t15 0 t15 0 t10 0" fill="none" stroke={G} strokeWidth="2" style={draw(80, 2)} />
-      <path d="M144 90 h30" stroke={G} strokeWidth="2" style={glow(2)} />
-      <text x="160" y="164" textAnchor="middle" fontSize="11" fill={F}>parole + immagine = due vie di recupero</text>
-    </Frame>
+    <>
+      <L i={0}>
+        <Box x={16} y={22} w={122} h={84} />
+        <T x={28} y={42} fill={SUB}>A parole</T>
+        <T x={28} y={62} fill={FG}>due membrane</T>
+        <T x={28} y={79} fill={FG}>creste interne</T>
+        <T x={28} y={96} fill={FG}>ATP sintasi</T>
+      </L>
+      <L i={1}>
+        <Draw d="M164 70 a68 44 0 1 0 136 0 a68 44 0 1 0 -136 0" len={380} stroke={AZL} />
+        <Draw d="M176 70 a56 32 0 1 0 112 0 a56 32 0 1 0 -112 0" len={300} stroke={AZ} width={1.3} />
+        {[
+          [200, 43, 72],
+          [218, 97, 68],
+          [236, 38, 70],
+          [254, 98, 70],
+        ].map(([x, a, b], i) => (
+          <line key={i} x1={x} y1={a} x2={x} y2={b} stroke={AZ} strokeWidth="1.3" strokeLinecap="round" />
+        ))}
+        <circle cx={271} cy={46} r={4} fill={AZ} />
+      </L>
+      <L i={2}>
+        <path d="M138 58 L166 62" stroke={MU} strokeDasharray="3 3" />
+        <path d="M138 75 L198 62" stroke={MU} strokeDasharray="3 3" />
+        <path d="M138 92 C200 120 250 90 268 50" fill="none" stroke={MU} strokeDasharray="3 3" />
+      </L>
+      <L i={3}>
+        <T x={16} y={140} fill={FG}>Ridisegna senza guardare</T>
+        <T x={16} y={158} fill={SUB}>e spiegalo ad alta voce</T>
+        <ellipse cx={252} cy={150} rx={46} ry={20} fill="none" stroke={MU} strokeDasharray="4 4" />
+      </L>
+    </>
   );
 }
 
+// ── Elaboration: statement → why? → check → connect ──
 function Why() {
   return (
-    <Frame>
-      {["Che cosa?", "Perché?", "Perché proprio così?"].map((t, i) => (
-        <g key={t} style={rise(4.5, i * 1.1)}>
-          <rect x={40 + i * 30} y={34 + i * 40} width={130 + i * 20} height="28" rx="14" fill={i === 2 ? G : A} fillOpacity="0.13" stroke={i === 2 ? G : A} strokeOpacity="0.6" />
-          <text x={54 + i * 30} y={52 + i * 40} fontSize="11" fill={i === 2 ? G : "#cfe3ff"}>{t}</text>
-        </g>
-      ))}
-    </Frame>
-  );
-}
-
-function SelfExplain() {
-  return (
-    <Frame>
-      {[0, 1, 2].map((i) => (
-        <g key={i}>
-          <rect x="30" y={34 + i * 42} width="140" height="30" rx="8" fill="none" stroke={F} strokeOpacity="0.4" />
-          <text x="42" y={53 + i * 42} fontSize="11" fill={F}>Passaggio {i + 1}</text>
-          <path d={`M176 ${49 + i * 42} h26`} stroke={A} strokeOpacity="0.6" />
-          <g style={rise(4, i * 1.2)}>
-            <rect x="208" y={36 + i * 42} width="86" height="26" rx="13" fill={A} fillOpacity="0.14" stroke={A} strokeOpacity="0.6" />
-            <text x="220" y={53 + i * 42} fontSize="10" fill="#cfe3ff">perché…</text>
+    <>
+      <L i={0}>
+        <Box x={16} y={14} w={288} h={30} />
+        <T x={28} y={33} fill={FG}>Il FADH₂ rende meno ATP del NADH</T>
+      </L>
+      <L i={1}>
+        <rect x={16} y={56} width={74} height={26} rx={13} fill={AZ} fillOpacity="0.14" stroke={AZ} strokeOpacity="0.7" />
+        <T x={53} y={73} anchor="middle" fill={AZL}>Perché?</T>
+        <T x={100} y={73} fill={SUB}>Ipotesi: entra più avanti?</T>
+      </L>
+      <L i={2}>
+        <Box x={16} y={94} w={288} h={30} stroke="rgba(74,222,128,0.45)" />
+        <T x={28} y={113} fill={FG}>Cede e⁻ al complesso II, che non pompa H⁺</T>
+        <Check x={290} y={109} />
+      </L>
+      <L i={3}>
+        <Draw d="M60 124 V142 M160 124 V142 M250 124 V142" len={60} stroke={MU} width={1.2} />
+        {[
+          [16, 92, "gradiente H⁺"],
+          [116, 86, "ATP sintasi"],
+          [210, 94, "e se pompasse?"],
+        ].map(([x, w, label]) => (
+          <g key={label as string}>
+            <rect x={x as number} y={142} width={w as number} height={24} rx={12} fill={FILL} stroke={LN} />
+            <T x={(x as number) + (w as number) / 2} y={158} anchor="middle" fill={FG}>{label}</T>
           </g>
-        </g>
-      ))}
-    </Frame>
+        ))}
+      </L>
+    </>
   );
 }
 
+// ── Self-explanation: worked example → cover the next step → explain → compare ──
+function SelfExplain() {
+  const rows = ["Glucosio → 2 piruvati", "2 NADH × 2,5", "= 5 ATP"];
+  return (
+    <>
+      <L i={0}>
+        {rows.map((r, i) => (
+          <g key={r}>
+            <rect x={16} y={14 + i * 32} width={172} height={26} rx={6} fill={FILL} stroke={LN} />
+            <T x={26} y={31 + i * 32} fill={SUB}>{i + 1}</T>
+            <T x={42} y={31 + i * 32} fill={FG}>{r}</T>
+          </g>
+        ))}
+      </L>
+      <L i={1}>
+        <rect x={16} y={78} width={172} height={26} rx={6} fill={SURF} stroke={AZ} strokeDasharray="4 3" />
+        <T x={102} y={95} anchor="middle" fill={SUB}>prevedi il passaggio</T>
+      </L>
+      <L i={2}>
+        <Draw d="M188 59 H200" len={14} stroke={MU} width={1.2} />
+        <Box x={200} y={38} w={104} h={42} rx={10} stroke={AZ} fill="rgba(61,139,255,0.08)" />
+        <T x={210} y={55} fill={FG}>Perché 2 NADH?</T>
+        <T x={210} y={71} fill={AZL}>uno per piruvato</T>
+      </L>
+      <L i={3}>
+        <Box x={16} y={120} w={288} h={46} />
+        <T x={28} y={139} fill={FG}>Modello: 2 piruvati, quindi 2 NADH</T>
+        <T x={28} y={156} fill={SUB}>annota dove la tua spiegazione differiva</T>
+        <Check x={290} y={134} />
+      </L>
+    </>
+  );
+}
+
+// ── Cornell: notes → cue questions → summary → cover and answer ──
 function Cornell() {
   return (
-    <Frame>
-      <rect x="70" y="20" width="180" height="140" rx="10" fill="none" stroke={F} strokeOpacity="0.5" />
-      <line x1="125" y1="20" x2="125" y2="125" stroke={A} strokeOpacity="0.6" />
-      <line x1="70" y1="125" x2="250" y2="125" stroke={A} strokeOpacity="0.6" />
-      {[40, 64, 88].map((y, i) => <line key={y} x1="80" y1={y} x2="115" y2={y} stroke={G} strokeWidth="4" strokeLinecap="round" style={glow(2.4, i * 0.4)} />)}
-      {[36, 50, 64, 78, 92, 106].map((y, i) => <line key={y} x1="135" y1={y} x2={240 - (i % 3) * 18} y2={y} stroke={F} strokeOpacity="0.5" strokeWidth="4" strokeLinecap="round" style={draw(110, 2.4, i * 0.15)} />)}
-      <line x1="80" y1="142" x2="220" y2="142" stroke={A} strokeWidth="4" strokeLinecap="round" style={draw(140, 2.4, 1)} />
-    </Frame>
+    <>
+      <rect x={34} y={12} width={252} height={158} rx={8} fill={FILL} stroke={LN} />
+      <line x1={112} y1={12} x2={112} y2={124} stroke={AZ} strokeOpacity="0.45" />
+      <line x1={34} y1={124} x2={286} y2={124} stroke={AZ} strokeOpacity="0.45" />
+      <L i={0}>
+        <T x={122} y={34} fill={FG}>HCO₃⁻ / CO₂, pKa 6,1</T>
+        <T x={122} y={54} fill={FG}>sistema aperto</T>
+        <T x={122} y={74} fill={FG}>polmoni: pCO₂</T>
+        <T x={122} y={94} fill={FG}>reni: HCO₃⁻</T>
+      </L>
+      <L i={1}>
+        <T x={42} y={34} fill={AZL}>Perché</T>
+        <T x={42} y={50} fill={AZL}>pKa 6,1?</T>
+        <T x={42} y={78} fill={AZL}>Chi regola</T>
+        <T x={42} y={94} fill={AZL}>il pH?</T>
+      </L>
+      <L i={2}>
+        <T x={42} y={144} fill={FG}>Il pH dipende da HCO₃⁻/CO₂,</T>
+        <T x={42} y={160} fill={FG}>regolato da polmoni e reni</T>
+      </L>
+      <L i={3}>
+        <rect x={113} y={13} width={172} height={110} fill={SURF} fillOpacity="0.96" />
+        <T x={199} y={72} anchor="middle" fill={SUB}>appunti coperti</T>
+        <rect x={38} y={21} width={70} height={36} rx={6} fill="none" stroke={AZ} strokeWidth="1.6" />
+      </L>
+    </>
+  );
+}
+
+// ── Concept map: concepts → labelled links → compare ──
+function MapNode({ x, y, w, label, dash, stroke = LN }: { x: number; y: number; w: number; label: string; dash?: boolean; stroke?: string }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={28} rx={8} fill={SURF} stroke={stroke} strokeDasharray={dash ? "4 3" : undefined} />
+      <T x={x + w / 2} y={y + 18} anchor="middle" fill={FG}>{label}</T>
+    </g>
   );
 }
 
 function ConceptMapArt() {
-  const n: [number, number][] = [[160, 50], [80, 100], [240, 100], [120, 150], [210, 150]];
-  const e = [[0, 1], [0, 2], [1, 3], [2, 4], [1, 2]];
   return (
-    <Frame>
-      {e.map(([a, b], i) => <line key={i} x1={n[a][0]} y1={n[a][1]} x2={n[b][0]} y2={n[b][1]} stroke={A} strokeOpacity="0.5" strokeWidth="1.5" style={draw(120, 2, i * 0.3)} />)}
-      {n.map(([x, y], i) => <rect key={i} x={x - 30} y={y - 12} width="60" height="24" rx="12" fill={i === 0 ? G : A} fillOpacity={i === 0 ? 0.2 : 0.12} stroke={i === 0 ? G : A} strokeOpacity="0.7" />)}
-    </Frame>
+    <>
+      <L i={0}>
+        <MapNode x={14} y={36} w={78} label="Glucosio" />
+        <MapNode x={122} y={36} w={78} label="Piruvato" />
+        <MapNode x={230} y={36} w={78} label="Acetil-CoA" />
+        <MapNode x={122} y={112} w={78} label="NADH" />
+        <MapNode x={222} y={112} w={90} label="Ciclo di Krebs" />
+      </L>
+      <L i={1}>
+        <Draw d="M92 50 H120" len={30} />
+        <Arrowhead x={120} y={50} dir="r" />
+        <T x={106} y={28} anchor="middle" fill={MU}>glicolisi</T>
+        <Draw d="M200 50 H228" len={30} />
+        <Arrowhead x={228} y={50} dir="r" />
+        <T x={214} y={28} anchor="middle" fill={MU}>PDH</T>
+        <Draw d="M268 64 V110" len={48} />
+        <Arrowhead x={268} y={110} dir="d" />
+        <T x={262} y={92} anchor="end" fill={MU}>+ ossalacetato</T>
+        <Draw d="M222 126 H202" len={22} />
+        <Arrowhead x={202} y={126} dir="l" />
+        <T x={212} y={156} anchor="middle" fill={MU}>produce</T>
+      </L>
+      <L i={2}>
+        <MapNode x={14} y={112} w={84} label="Catena resp." dash stroke={WARN} />
+        <path d="M122 126 H100" stroke={WARN} strokeWidth="1.6" strokeDasharray="4 3" />
+        <Arrowhead x={100} y={126} dir="l" color={WARN} />
+        <T x={14} y={160} fill={WARN_TEXT}>collegamento mancante</T>
+        <Check x={150} y={24} />
+      </L>
+    </>
   );
 }
 
+// ── Oral exam: topic → answer against the clock → grid → retry the gaps ──
 function Oral() {
   return (
-    <Frame>
-      <rect x="140" y="40" width="40" height="66" rx="20" fill={A} fillOpacity="0.14" stroke={A} />
-      <path d="M126 92 c0 26 68 26 68 0 M160 118 v20 M140 140 h40" fill="none" stroke={A} strokeWidth="2" />
-      {[0, 1, 2].map((i) => (
-        <g key={i} style={glow(1.8, i * 0.3)}>
-          <path d={`M${110 - i * 16} ${60 - i * 6} q-12 ${18 + i * 6} 0 ${36 + i * 12}`} fill="none" stroke={G} strokeWidth="2" />
-          <path d={`M${210 + i * 16} ${60 - i * 6} q12 ${18 + i * 6} 0 ${36 + i * 12}`} fill="none" stroke={G} strokeWidth="2" />
-        </g>
-      ))}
-    </Frame>
+    <>
+      <L i={0}>
+        <Box x={16} y={14} w={176} h={30} />
+        <T x={28} y={33} fill={FG}>Fosforilazione ossidativa</T>
+      </L>
+      <L i={1}>
+        <circle cx={258} cy={46} r={28} fill="none" stroke={LN} strokeWidth="4" />
+        <Draw d="M258 18 a28 28 0 1 1 -24.2 42" len={140} width={4} />
+        <T x={258} y={51} anchor="middle" fill={FG} size={14} weight={600}>1:30</T>
+        <Box x={16} y={54} w={176} h={30} stroke={AZ} fill="rgba(61,139,255,0.08)" />
+        <T x={28} y={73} fill={FG}>«E con l’oligomicina?»</T>
+      </L>
+      <L i={2}>
+        <Check x={24} y={104} />
+        <T x={38} y={108} fill={FG}>gradiente di H⁺</T>
+        <Check x={24} y={126} />
+        <T x={38} y={130} fill={FG}>ATP sintasi bloccata</T>
+        <Cross x={24} y={148} />
+        <T x={38} y={152} fill={FG}>consumo di O₂ che cala</T>
+      </L>
+      <L i={3}>
+        <Draw d="M170 148 H204" len={36} stroke={MU} width={1.2} />
+        <Arrowhead x={204} y={148} dir="r" color={MU} />
+        <rect x={208} y={136} width={96} height={26} rx={13} fill={AZ} fillOpacity="0.14" stroke={AZ} strokeOpacity="0.7" />
+        <T x={256} y={153} anchor="middle" fill={AZL}>ripassa e riprova</T>
+      </L>
+    </>
   );
 }
 
@@ -218,11 +579,23 @@ const ART: Record<Technique["icon"], () => ReactNode> = {
   mic: Oral,
 };
 
-export function TechniqueArt({ icon, className }: { icon: Technique["icon"]; className?: string }) {
+/**
+ * Illustration of a technique. Decorative by default (`aria-hidden`); the
+ * technique page wraps it in a <figure> whose caption describes the step.
+ * `step` (0-based) highlights that step of the tutorial.
+ */
+export function TechniqueArt({ icon, className, step }: { icon: Technique["icon"]; className?: string; step?: number }) {
   const Comp = ART[icon];
   return (
     <div className={cn("overflow-hidden", className)}>
-      <Comp />
+      <style href="atlas-technique-art" precedence="default">
+        {CSS}
+      </style>
+      <svg viewBox="0 0 320 180" className={cn("block h-full w-full", step === undefined ? "ta-hover" : "ta-step")} aria-hidden>
+        <StepCtx.Provider value={step}>
+          <Comp />
+        </StepCtx.Provider>
+      </svg>
     </div>
   );
 }

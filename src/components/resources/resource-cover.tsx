@@ -36,13 +36,27 @@ export function ResourceCover({ r, size = "card", className }: { r: Resource; si
   const [index, setIndex] = useState(0);
   const ref = useRef<HTMLImageElement>(null);
   const current = sources[index];
-  const next = () => setIndex((i) => i + 1);
+  // Advance past one specific source only once, even if both the element and the probe below report it.
+  const skip = (src: string) => setIndex((i) => (sources[i]?.src === src ? i + 1 : i));
+  const next = () => current && skip(current.src);
 
   useEffect(() => {
-    // An error that happens before hydration is not replayed to React.
+    // An error that happens before hydration is not replayed to React, and a
+    // deferred lazy image can look "complete" with no pixels: ask the network
+    // directly instead of guessing from the element.
     const img = ref.current;
-    // YouTube answers a missing size with a 120×90 placeholder (and a 404) that may finish before hydration.
-    if (img?.complete && (img.naturalWidth === 0 || (r.youtubeId && img.naturalWidth <= 120))) next();
+    if (!img || !current || !img.complete || img.naturalWidth > 120 || (img.naturalWidth > 0 && !r.youtubeId)) return;
+    const src = current.src;
+    const probe = new Image();
+    probe.referrerPolicy = "no-referrer";
+    // YouTube answers a missing size with a 120×90 grey placeholder (and a 404).
+    probe.onload = () => r.youtubeId && probe.naturalWidth <= 120 && skip(src);
+    probe.onerror = () => skip(src);
+    probe.src = src;
+    return () => {
+      probe.onload = null;
+      probe.onerror = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 

@@ -80,8 +80,10 @@ export function coverLabel(r: Resource): { big: string; small?: string } {
   const code = courseCode(r);
   if (code) return { big: code, small: r.subjects.map((s) => SUBJECT_NAME[s]).join(" e ") };
   const title = r.titleIt ?? r.title;
-  const big = title.length <= 22 ? title : r.provider;
-  const small = big === r.provider || r.provider.toLowerCase().includes(big.toLowerCase()) || big.toLowerCase().includes(r.provider.toLowerCase()) ? undefined : r.provider;
+  // A video is published by its channel, not by "YouTube".
+  const publisher = r.youtubeId ? r.institution ?? r.provider : r.provider;
+  const big = title.length <= 22 ? title : publisher;
+  const small = big === publisher || publisher.toLowerCase().includes(big.toLowerCase()) || big.toLowerCase().includes(publisher.toLowerCase()) ? undefined : publisher;
   return { big, small };
 }
 

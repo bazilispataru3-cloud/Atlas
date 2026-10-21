@@ -131,7 +131,7 @@ function ReadSection({ topicId, id, title, children }: { topicId: string; id: st
         aria-pressed={read}
         className={cx(
           "mt-4 inline-flex min-h-11 items-center gap-2 rounded-control border px-3.5 text-ui font-medium transition-colors duration-150 sm:min-h-9",
-          read ? "border-success/25 bg-success/[0.06] text-green-300" : "border-white/[0.1] text-fg-muted hover:border-white/[0.18] hover:bg-white/[0.04] hover:text-fg",
+          read ? "border-success/25 bg-success/[0.06] text-success" : "border-white/[0.1] text-fg-muted hover:border-white/[0.18] hover:bg-white/[0.04] hover:text-fg",
         )}
       >
         <Check className="h-4 w-4" aria-hidden /> {read ? "Sezione letta" : "Segna come letta"}

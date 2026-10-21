@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowUpRight, Crown, ShieldCheck } from "lucide-react";
 import type { Resource } from "@/lib/types";
 import { Sheet } from "@/components/ui/primitives";
@@ -24,11 +24,14 @@ function useMedia(query: string): boolean {
  * Phones and tablets: the button tucks away while the student scrolls down (so
  * it never sits on a control they are reaching for) and comes back on scroll-up
  * and at the end of the page. On desktop it lives in a lane the page reserves on
- * the right, so it never covers content and stays put.
+ * the right, so it never covers content and stays put. On every layout, when
+ * scrolling stops with the button over a link, button or field of the page, it
+ * steps aside until the next scroll.
  */
-function useTuckOnScroll(hideWhileVisible?: string) {
+function useTuckOnScroll(fab: React.RefObject<HTMLButtonElement | null>, hideWhileVisible?: string) {
   const [tucked, setTucked] = useState(false);
   const [twinVisible, setTwinVisible] = useState(false);
+  const [covering, setCovering] = useState(false);
   useEffect(() => {
     // Below desktop the page header already shows "Risorse premium": the floating
     // button waits until that button has scrolled away, so it never sits on the first screen.
@@ -40,17 +43,40 @@ function useTuckOnScroll(hideWhileVisible?: string) {
   }, [hideWhileVisible]);
   useEffect(() => {
     let last = window.scrollY;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const check = () => {
+      const btn = fab.current;
+      if (!btn) return;
+      // Where the button sits when shown (a tucked button is moved 16px down).
+      const r = btn.getBoundingClientRect();
+      const dy = btn.dataset.tucked === "true" ? 16 : 0;
+      const box = { l: r.left - 6, r: r.right + 6, t: r.top - dy - 6, b: r.bottom - dy + 6 };
+      const hit = [...document.querySelectorAll<HTMLElement>("main a[href], main button, main input, main select, main textarea, main summary")].some((c) => {
+        if (c === btn || c.closest("[role=dialog]")) return false;
+        const q = c.getBoundingClientRect();
+        return q.width > 0 && q.right > box.l && q.left < box.r && q.bottom > box.t && q.top < box.b;
+      });
+      setCovering(hit);
+    };
     const onScroll = () => {
       const y = window.scrollY;
       const atEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 120;
       if (window.innerWidth >= 1024 || atEnd) setTucked(false);
       else if (Math.abs(y - last) > 8) setTucked(y > last);
       last = y;
+      clearTimeout(idle);
+      idle = setTimeout(check, 160);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  return tucked || twinVisible;
+    window.addEventListener("resize", onScroll);
+    idle = setTimeout(check, 400);
+    return () => {
+      clearTimeout(idle);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [fab]);
+  return tucked || twinVisible || covering;
 }
 
 const GROUPS: { id: string; title: string; test: (r: Resource) => boolean }[] = [
@@ -176,11 +202,14 @@ export function PremiumFab({
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
   const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setOpenState(v));
-  const tucked = useTuckOnScroll(hideWhileVisible);
+  const ref = useRef<HTMLButtonElement>(null);
+  const tucked = useTuckOnScroll(ref, hideWhileVisible);
   return (
     <>
       <button
+        ref={ref}
         type="button"
+        data-tucked={tucked}
         onClick={() => setOpen(true)}
         aria-label={`Risorse premium (${PREMIUM.length})`}
         aria-haspopup="dialog"

@@ -123,22 +123,50 @@ export function SubjectPage({ subjectId }: { subjectId: SubjectId }) {
 
   return (
     <div className="pb-6">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-10">
-        <header className="min-w-0">
+      {/* Phones: title, then progress and the primary action, then the official objective and the index.
+          Large screens: progress on the right, spanning both rows. */}
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,21rem)] lg:gap-x-10 lg:gap-y-0">
+        <header className="min-w-0 lg:col-start-1 lg:row-start-1">
           <Link href="/materie" className="inline-flex min-h-6 items-center gap-1.5 text-sm text-fg-subtle transition-colors hover:text-fg">
             <ArrowLeft className="h-4 w-4" aria-hidden /> Le mie materie
           </Link>
           <div className="mt-4 flex items-center gap-3.5">
-            <span className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-control border", TONE[tone].bg, TONE[tone].text, TONE[tone].border)}>
+            <span className={cn("hidden h-11 w-11 shrink-0 place-items-center rounded-control border sm:grid", TONE[tone].bg, TONE[tone].text, TONE[tone].border)}>
               <Icon className="h-5 w-5" aria-hidden />
             </span>
-            <h1 className="min-w-0 font-display text-[2rem] leading-[1.08] tracking-[-0.015em] text-fg sm:text-4xl lg:text-5xl">{subject.name}</h1>
+            <h1 className="min-w-0 font-display text-[2rem] leading-[1.08] tracking-[-0.015em] text-fg [text-wrap:balance] sm:text-4xl lg:text-5xl">{subject.name}</h1>
           </div>
           <p className="mt-3 text-ui text-fg-subtle">
             {subject.cfu} CFU, {pluralize(subject.units.length, "unità", "unità")}, {pluralize(states.length, "argomento", "argomenti")}, {pluralize(lessons, "lezione ATLAS completa", "lezioni ATLAS complete")}
           </p>
+        </header>
 
-          <figure className="mt-6 max-w-[65ch] border-l-2 border-azure-400/40 pl-4">
+        <aside aria-label={`Il tuo avanzamento in ${subject.name}`} className="card self-start p-5 sm:p-6 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-sm text-fg-muted">Padronanza</span>
+            {hydrated ? <span className="font-display text-4xl leading-none text-fg">{fmt.percent(mastery)}</span> : <Skeleton className="h-9 w-20" />}
+          </div>
+          <Meridian value={hydrated ? mastery : 0} label={`Padronanza di ${subject.name}`} className="mt-5" />
+          {hydrated ? <StatusCounts states={states} className="mt-4" /> : <Skeleton className="mt-4 h-5 w-full" />}
+          {hydrated && next && (
+            <div className="mt-5 border-t border-white/[0.07] pt-4">
+              <div className="text-xs text-fg-subtle">Prossimo argomento</div>
+              <Link
+                href={`/materie/${subjectId}/${next.ref.topic.id}`}
+                className="mt-1 line-clamp-2 text-sm font-medium text-fg underline-offset-4 hover:underline"
+              >
+                {next.ref.topic.title}
+              </Link>
+              {next.status !== "nuovo" && <StatusBadge status={next.status} className="mt-2" />}
+              <Button variant="primary" className="mt-4 w-full" onClick={() => openStartStudy({ subject: subjectId, topicId: next.ref.topic.id })}>
+                <Play className="h-4 w-4 fill-current" aria-hidden /> {next.status === "nuovo" ? "Inizia a studiare" : "Continua a studiare"}
+              </Button>
+            </div>
+          )}
+        </aside>
+
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <figure className="max-w-[65ch] border-l-2 border-azure-400/40 pl-4 lg:mt-6">
             <figcaption className="text-xs text-fg-subtle">Obiettivo formativo, dal syllabus MUR</figcaption>
             <blockquote className="mt-1 text-base leading-relaxed text-fg-reading">«{subject.generalObjective}»</blockquote>
           </figure>
@@ -166,31 +194,7 @@ export function SubjectPage({ subjectId }: { subjectId: SubjectId }) {
               <UnitIndex subjectId={subjectId} states={states} hydrated={hydrated} />
             </nav>
           </details>
-        </header>
-
-        <aside aria-label={`Il tuo avanzamento in ${subject.name}`} className="card self-start p-5 sm:p-6">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-sm text-fg-muted">Padronanza</span>
-            {hydrated ? <span className="font-display text-4xl leading-none text-fg">{fmt.percent(mastery)}</span> : <Skeleton className="h-9 w-20" />}
-          </div>
-          <Meridian value={hydrated ? mastery : 0} label={`Padronanza di ${subject.name}`} className="mt-5" />
-          {hydrated ? <StatusCounts states={states} className="mt-4" /> : <Skeleton className="mt-4 h-5 w-full" />}
-          {hydrated && next && (
-            <div className="mt-5 border-t border-white/[0.07] pt-4">
-              <div className="text-xs text-fg-subtle">Prossimo argomento</div>
-              <Link
-                href={`/materie/${subjectId}/${next.ref.topic.id}`}
-                className="mt-1 line-clamp-2 text-sm font-medium text-fg underline-offset-4 hover:underline"
-              >
-                {next.ref.topic.title}
-              </Link>
-              {next.status !== "nuovo" && <StatusBadge status={next.status} className="mt-2" />}
-              <Button variant="primary" className="mt-4 w-full" onClick={() => openStartStudy({ subject: subjectId, topicId: next.ref.topic.id })}>
-                <Play className="h-4 w-4 fill-current" aria-hidden /> {next.status === "nuovo" ? "Inizia a studiare" : "Continua a studiare"}
-              </Button>
-            </div>
-          )}
-        </aside>
+        </div>
       </div>
 
       {/* Filters: opaque, above the rows (z-20), below the top bar (z-30). */}
@@ -199,7 +203,7 @@ export function SubjectPage({ subjectId }: { subjectId: SubjectId }) {
         className="sticky top-14 z-20 -mx-4 mt-10 border-y border-white/[0.07] bg-ink-950 px-4 py-2.5 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
       >
         <div className="flex flex-wrap items-center gap-2">
-          <div role="search" className="relative min-w-0 flex-1 md:min-w-[15rem] md:max-w-sm">
+          <div role="search" className="relative min-w-0 flex-1 sm:max-w-md xl:min-w-[15rem] xl:max-w-sm">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" aria-hidden />
             <Input
               ref={searchRef}
@@ -214,7 +218,7 @@ export function SubjectPage({ subjectId }: { subjectId: SubjectId }) {
               }}
               placeholder={`Cerca in ${subject.name}`}
               aria-label={`Cerca argomenti di ${subject.name}`}
-              className="h-11 pl-10 pr-11 md:h-10 [&::-webkit-search-cancel-button]:hidden"
+              className="h-11 pl-10 pr-11 xl:h-10 [&::-webkit-search-cancel-button]:hidden"
             />
             {q && (
               <button
@@ -230,7 +234,8 @@ export function SubjectPage({ subjectId }: { subjectId: SubjectId }) {
               </button>
             )}
           </div>
-          <div className="hidden flex-wrap items-center gap-2 md:flex">
+          {/* Inline filters only where they fit on one or two lines; elsewhere they live in a sheet. */}
+          <div className="hidden flex-wrap items-center gap-2 xl:flex">
             <Segmented
               ariaLabel="Filtra per stato"
               value={filter}
@@ -252,13 +257,15 @@ export function SubjectPage({ subjectId }: { subjectId: SubjectId }) {
           </div>
           <Button
             variant="secondary"
-            size="icon"
-            className="h-11 w-11 md:hidden"
+            className="h-11 w-11 shrink-0 px-0 sm:w-auto sm:px-4 xl:hidden"
             onClick={() => setSheetOpen(true)}
             aria-haspopup="dialog"
             aria-label={activeFilters ? `Filtri, ${activeFilters} attivi` : "Filtri"}
           >
             <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden />
+            <span className="hidden sm:inline" aria-hidden>
+              Filtri
+            </span>
             {activeFilters > 0 && (
               <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-azure-500 px-1 text-[11px] font-semibold text-white" aria-hidden>
                 {activeFilters}

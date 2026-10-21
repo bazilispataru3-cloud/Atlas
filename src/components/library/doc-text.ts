@@ -451,3 +451,87 @@ export function locateAnchor(folded: string, anchor: Partial<TextAnchor> & { q: 
 
 /** The anchor query of a passage saved as plain text (older highlights). */
 export const legacyAnchor = (text: string) => ({ q: squash(fold(text)).text });
+
+// ── Loose matching (spaces ignored) ───────────────────────────
+
+/**
+ * Matches of `query` in `original`, ignoring case, accents and every space.
+ * The PDF text layer splits words and lines into separate runs with no space
+ * between them, so the same matcher works on the page and on the extracted text.
+ */
+export function matchRangesLoose(original: string, query: string, limit = 500): [number, number][] {
+  const q = squash(fold(query)).text;
+  if (!q) return [];
+  const f = foldWithMap(original);
+  const sq = squash(f.text);
+  return findAll(sq.text, q, limit).map((s) => {
+    const startSrc = f.map[sq.map[s]];
+    const endSrc = f.map[sq.map[s + q.length - 1]] ?? original.length - 1;
+    const endChar = original.codePointAt(endSrc) ?? 0;
+    return [startSrc, endSrc + (endChar > 0xffff ? 2 : 1)];
+  });
+}
+
+/** Number of loose matches of `query` in `text` (see matchRangesLoose). */
+export const countLoose = (text: string, query: string) => matchRangesLoose(text, query, 5000).length;
+
+/** A short excerpt around the first loose match, with the match range inside the excerpt. */
+export function snippetLoose(original: string, query: string, radius = 60): { text: string; mark: [number, number] | null } | null {
+  const r = matchRangesLoose(original, query, 1)[0];
+  if (!r) return null;
+  let start = Math.max(0, r[0] - radius);
+  let end = Math.min(original.length, r[1] + radius + 30);
+  if (start > 0) {
+    const sp = original.indexOf(" ", start);
+    if (sp > 0 && sp < r[0]) start = sp + 1;
+  }
+  if (end < original.length) {
+    const sp = original.lastIndexOf(" ", end);
+    if (sp > r[1]) end = sp;
+  }
+  const lead = start > 0 ? "…" : "";
+  const body = original.slice(start, end).replace(/\s/g, " ");
+  return { text: lead + body + (end < original.length ? "…" : ""), mark: [lead.length + r[0] - start, lead.length + r[1] - start] };
+}
+
+/** Range in a folded string → range in its source string. */
+export function foldedToSource(f: Folded, source: string, start: number, end: number): [number, number] {
+  const s = f.map[start] ?? source.length;
+  const lastSrc = f.map[Math.max(start, end - 1)] ?? source.length - 1;
+  const ch = source.codePointAt(lastSrc) ?? 0;
+  return [s, Math.min(source.length, lastSrc + (ch > 0xffff ? 2 : 1))];
+}
+
+/** Range in a source string → range in its folded string. */
+export function sourceToFolded(f: Folded, start: number, end: number): [number, number] {
+  let s = f.map.findIndex((i) => i >= start);
+  if (s < 0) s = f.map.length;
+  let e = s;
+  while (e < f.map.length && f.map[e] < end) e++;
+  return [s, e];
+}
+
+// ── Inline Markdown (bold only, everything else becomes plain text) ──
+
+/** Removes inline Markdown markers and returns the plain text with the bold ranges. */
+export function inlineMd(src: string): { text: string; bold: [number, number][] } {
+  const s = stripMdLinks(src)
+    .replace(/`([^`]+)`/g, "$1")
+    // Single-asterisk / underscore emphasis: drop the markers, keep the words.
+    .replace(/(?<![*\w])\*(?!\*)([^*\n]+?)(?<!\*)\*(?![*\w])/g, "$1")
+    .replace(/(?<![_\w])_(?!_)([^_\n]+?)(?<!_)_(?![_\w])/g, "$1");
+  const bold: [number, number][] = [];
+  let out = "";
+  const re = /\*\*([^*]+)\*\*|__([^_]+)__/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s))) {
+    out += s.slice(last, m.index);
+    const inner = m[1] ?? m[2];
+    bold.push([out.length, out.length + inner.length]);
+    out += inner;
+    last = m.index + m[0].length;
+  }
+  out += s.slice(last);
+  return { text: out, bold };
+}

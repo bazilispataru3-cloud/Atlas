@@ -77,6 +77,7 @@ export function ModeCard({
   ultraKind = "meccanistico",
   animateArt,
   headingLevel = 3,
+  bandArt = true,
 }: {
   mode: StudyMode;
   selected?: boolean;
@@ -92,6 +93,8 @@ export function ModeCard({
   ultraKind?: UltraKind;
   animateArt?: boolean;
   headingLevel?: 2 | 3;
+  /** Show the short art band of the compact layout (false in dense pickers, where three options must fit one screen). */
+  bandArt?: boolean;
 }) {
   const meta = MODE_META[mode];
   const Icon = meta.icon;
@@ -140,7 +143,7 @@ export function ModeCard({
           <ModeArt mode={mode} active={isSel} animate={animateArt} />
         </div>
       )}
-      {lay !== "full" && (
+      {lay !== "full" && bandArt && (
         <div className={cx("relative h-14 w-full shrink-0 overflow-hidden border-b border-white/[0.05]", lay === "responsive" && "md:hidden")}>
           <ModeArt mode={mode} active={isSel} animate={animateArt} shape="band" />
         </div>

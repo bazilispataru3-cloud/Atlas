@@ -165,8 +165,13 @@ export function ResourcesPage() {
   const featuredIds = new Set(featured.map((r) => r.id));
   const topicCount = next ? FREE.filter((r) => r.topicTags.includes(next.ref.topic.id)).length : 0;
 
+  // Every section lists all its resources (so its count matches the summary); the ones already
+  // in evidence above go last, behind "Mostra tutte", so the first screenful never repeats them.
   const sections = SECTIONS.filter((s) => kind === "tutti" || s.id === kind)
-    .map((s) => ({ ...s, items: results.filter((r) => groupOf(r) === s.id && !featuredIds.has(r.id)) }))
+    .map((s) => {
+      const all = results.filter((r) => groupOf(r) === s.id);
+      return { ...s, items: [...all.filter((r) => !featuredIds.has(r.id)), ...all.filter((r) => featuredIds.has(r.id))] };
+    })
     .filter((s) => s.items.length);
 
   const runLive = async (q: string) => {
@@ -263,7 +268,8 @@ export function ResourcesPage() {
     <div className="pb-32 lg:pb-16 lg:pr-16 min-[1600px]:pr-0">
       <PageHeader
         title="Corsi, videolezioni e manuali gratuiti"
-        description="Da MIT, Yale, OpenStax, Khan Academy, Federica e altri atenei, collegati agli argomenti del semestre filtro."
+        // Phones: the summary right below says the same in fewer lines, so the first resource stays above the fold.
+        description={<span className="hidden sm:inline">Da MIT, Yale, OpenStax, Khan Academy, Federica e altri atenei, collegati agli argomenti del semestre filtro.</span>}
         actions={
           <Button
             id="premium-header-button"

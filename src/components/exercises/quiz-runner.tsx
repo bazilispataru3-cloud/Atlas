@@ -137,7 +137,8 @@ export function QuizRunner({
   /** The question just verified: only that one plays the correct/wrong animation. */
   const [justChecked, setJustChecked] = useState<number | null>(null);
   const finishedRef = useRef(false);
-  const pendingFocus = useRef<PendingFocus>(null);
+  // Page-level runs (/quiz, the exam) start with focus on the first question; embedded runs leave focus where it is.
+  const pendingFocus = useRef<PendingFocus>(sticky ? "question" : null);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const questionRef = useRef<HTMLElement>(null);
@@ -257,6 +258,8 @@ export function QuizRunner({
   useEffect(() => {
     const target = pendingFocus.current;
     if (!target) return;
+    // Wait for the render that shows the target (e.g. "Rifai le sbagliate" resets the run one effect later).
+    if ((target === "summary") !== !!finished) return;
     pendingFocus.current = null;
     if (target === "summary") {
       summaryRef.current?.focus({ preventScroll: true });
@@ -281,7 +284,7 @@ export function QuizRunner({
     if (p?.q.type === "mcq") {
       const sel = answers[index]?.value;
       const opt = optionRefs.current[typeof sel === "number" ? sel : 0];
-      if (opt && !opt.disabled) return opt.focus({ preventScroll: true });
+      if (opt?.isConnected && !opt.disabled) return opt.focus({ preventScroll: true });
     } else if (fine && fieldRef.current && !fieldRef.current.disabled) {
       return fieldRef.current.focus({ preventScroll: true });
     }
@@ -417,7 +420,7 @@ export function QuizRunner({
           presented={presented}
           answers={answers}
           exam={exam}
-          title={title}
+          title={headerStart && !finishedHeader ? undefined : title}
           compact={compactSummary}
           headingRef={summaryRef}
           onRetry={() => resetRun(presented.length)}
@@ -486,7 +489,7 @@ export function QuizRunner({
         className={cn(
           sticky
             ? cn(
-                "sticky z-20 -mx-4 bg-ink-950/85 px-4 backdrop-blur-xl backdrop-saturate-150 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0",
+                "sticky z-20 -mx-4 bg-ink-950/95 px-4 backdrop-blur-xl backdrop-saturate-150 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0",
                 focusMode ? "top-0 -mt-[max(1rem,env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] lg:-mt-6" : "top-14",
               )
             : "mb-1",
@@ -1116,14 +1119,14 @@ function QuizSummary({
   const actions: ReactNode[] = [];
   if (!exam && missed.length > 0) {
     actions.push(
-      <Button key="missed" variant="primary" onClick={() => onRetryMissed(missed.map((x) => x.p.q))}>
+      <Button key="missed" variant="primary" className="w-full sm:w-auto" onClick={() => onRetryMissed(missed.map((x) => x.p.q))}>
         <ListRestart className="h-4 w-4" aria-hidden /> Rifai le sbagliate ({missed.length})
       </Button>,
     );
   }
   if (!compact && missed.length > 0) {
     actions.push(
-      <Button key="cards" variant="secondary" onClick={makeCards} disabled={cardsAdded !== null}>
+      <Button key="cards" variant="secondary" className="w-full sm:w-auto" onClick={makeCards} disabled={cardsAdded !== null}>
         {cardsAdded !== null ? <Check className="h-4 w-4 text-success" aria-hidden /> : <GalleryVerticalEnd className="h-4 w-4" aria-hidden />}
         {cardsAdded !== null ? "Flashcard create" : "Trasforma gli errori in flashcard"}
       </Button>,
@@ -1132,19 +1135,19 @@ function QuizSummary({
   if (!exam) {
     if (!missed.length && onNewQuiz) {
       actions.push(
-        <Button key="new" variant="primary" onClick={onNewQuiz}>
+        <Button key="new" variant="primary" className="w-full sm:w-auto" onClick={onNewQuiz}>
           <Plus className="h-4 w-4" aria-hidden /> Nuovo quiz
         </Button>,
       );
     }
     actions.push(
-      <Button key="same" variant={!missed.length && !onNewQuiz ? "primary" : "ghost"} onClick={onRetry}>
+      <Button key="same" variant={!missed.length && !onNewQuiz ? "primary" : "ghost"} className={!missed.length && !onNewQuiz ? "w-full sm:w-auto" : "flex-1 sm:flex-none"} onClick={onRetry}>
         <RotateCcw className="h-4 w-4" aria-hidden /> Rifai lo stesso quiz
       </Button>,
     );
     if (missed.length && onNewQuiz) {
       actions.push(
-        <Button key="new" variant="ghost" onClick={onNewQuiz}>
+        <Button key="new" variant="ghost" className="flex-1 sm:flex-none" onClick={onNewQuiz}>
           <Plus className="h-4 w-4" aria-hidden /> Nuovo quiz
         </Button>,
       );

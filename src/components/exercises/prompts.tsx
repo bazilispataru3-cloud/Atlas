@@ -241,7 +241,7 @@ export function FlipCards({
                   className="flex min-h-44 flex-col justify-between gap-3 rounded-card border border-white/[0.08] bg-ink-800 p-4 transition-colors duration-150 [backface-visibility:hidden] [grid-area:1/1] group-hover:border-white/[0.15]"
                 >
                   <span className="text-xs text-fg-subtle">Domanda</span>
-                  <span className="text-[15px] leading-snug text-fg">{c.front}</span>
+                  <span className="text-base leading-snug text-fg">{c.front}</span>
                   <span className="flex items-center gap-1.5 text-xs text-fg-subtle">
                     <RotateCcw className="h-3 w-3" aria-hidden /> Gira la carta
                   </span>
@@ -306,7 +306,7 @@ function GuidedProblemCard({ p, n }: { p: GuidedProblem; n: number }) {
                 {s.hint}
               </span>
             </div>
-            <div className="mt-1 pl-5 font-mono text-[13px] text-fg">{s.result}</div>
+            <div className="mt-1 pl-5 font-mono text-ui text-fg">{s.result}</div>
           </li>
         ))}
       </ol>

@@ -479,8 +479,8 @@ export function FlashcardsPage() {
 
       {/* Today's review: the page's one bold element */}
       <section aria-labelledby="ripasso-oggi" className="card mt-8 overflow-hidden rounded-panel">
-        <div className="grid md:grid-cols-12">
-          <div className="flex gap-5 p-5 sm:gap-7 sm:p-8 md:col-span-7">
+        <div className="grid lg:grid-cols-12">
+          <div className="flex gap-5 p-5 sm:gap-7 sm:p-8 lg:col-span-7">
             <DeckStack count={due.length} empty={!cards.length} />
             <div className="min-w-0 flex-1">
               <h2 id="ripasso-oggi" className="text-sm text-fg-muted">
@@ -527,7 +527,7 @@ export function FlashcardsPage() {
           </div>
 
           {cards.length > 0 && (
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-white/[0.07] p-5 sm:p-8 md:col-span-5 md:border-l md:border-t-0">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-white/[0.07] p-5 sm:grid-cols-[auto_auto_minmax(0,1fr)] sm:gap-x-10 sm:px-8 sm:py-6 lg:col-span-5 lg:grid-cols-2 lg:gap-x-6 lg:border-l lg:border-t-0 lg:p-8">
               <div>
                 <dt className="text-ui text-fg-muted">Ritenzione, 30 giorni</dt>
                 <dd className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-fg">{retention === null ? "—" : fmt.percent(retention)}</dd>
@@ -538,7 +538,7 @@ export function FlashcardsPage() {
                 <dd className="mt-1 text-2xl font-semibold tracking-[-0.02em] text-fg">{last7}</dd>
                 <dd className="mt-0.5 text-xs text-fg-subtle">{pluralize(reviews.length, "ripasso", "ripassi")} in totale</dd>
               </div>
-              <div className="col-span-2">
+              <div className="col-span-2 sm:col-span-1 lg:col-span-2">
                 <dt className="flex items-baseline justify-between gap-3 text-ui text-fg-muted">
                   <span>Maturità delle carte</span>
                   <span className="text-xs text-fg-subtle">{pluralize(active.length, "carta attiva", "carte attive")}</span>
@@ -594,7 +594,7 @@ export function FlashcardsPage() {
                   </div>
                   <div className="flex items-center gap-2 pl-4 sm:w-60 sm:justify-end sm:pl-0">
                     {dd ? (
-                      <Button size="sm" variant="secondary" href={`/flashcard/ripasso?deck=${encodeURIComponent(d)}`} className="h-10 sm:h-8" aria-label={`Ripassa ${dd} carte del mazzo «${d}»`}>
+                      <Button size="sm" variant="secondary" href={`/flashcard/ripasso?deck=${encodeURIComponent(d)}`} className="h-10 sm:h-8 sm:min-w-28" aria-label={`Ripassa ${dd} carte del mazzo «${d}»`}>
                         <Play className="h-3.5 w-3.5 fill-current" aria-hidden /> Ripassa {dd}
                       </Button>
                     ) : (

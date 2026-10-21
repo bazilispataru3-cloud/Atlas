@@ -1,15 +1,34 @@
 "use client";
 
-// Personal library storage. Files never leave the browser: binaries and the
-// extracted text live in IndexedDB; only metadata lives in the app store.
+// Personal library storage. Files never leave the browser: binaries, the
+// extracted text and the reading metadata live in IndexedDB; only the document
+// list (names, highlights, bookmarks) lives in the app store.
 
-import { del, get, set } from "idb-keyval";
+import { del, get, getMany, set } from "idb-keyval";
 import { useAtlas } from "./store";
 import { tokens } from "./search";
+import { extractPageText, snippetLoose, countLoose, splitTextIntoPages as splitPages, type PdfItemLike, type TextAnchor } from "@/components/library/doc-text";
 
 export interface PageText {
   page: number;
   text: string;
+  /** Lines that look like headings (larger type), used for the outline when the PDF has none. */
+  headings?: string[];
+}
+
+/** Version of the text extraction: documents indexed with an older one are re-read when opened. */
+export const TEXT_VERSION = 2;
+
+export type HighlightColor = "azure" | "green" | "rose" | "violet";
+
+/** Reading data kept next to the file (IndexedDB), outside the persisted store. */
+export interface DocMeta {
+  textVersion?: number;
+  lastOpenedAt?: string;
+  /** Text documents: a lecture transcript or personal notes. */
+  category?: "sbobina" | "appunti";
+  /** Per highlight id: the exact colour and the position of the passage on its page. */
+  marks?: Record<string, { color: HighlightColor; anchor?: TextAnchor }>;
 }
 
 export async function saveDocFile(id: string, file: Blob) {
@@ -28,8 +47,63 @@ export async function getPageTexts(id: string): Promise<PageText[]> {
   return (await get<PageText[]>(`text:${id}`)) ?? [];
 }
 
+export async function getDocMeta(id: string): Promise<DocMeta> {
+  try {
+    return (await get<DocMeta>(`meta:${id}`)) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+const metaQueue = new Map<string, Promise<unknown>>();
+
+/** Read-modify-write of a document's metadata, serialised per document. */
+export function patchDocMeta(id: string, patch: (m: DocMeta) => DocMeta): Promise<DocMeta> {
+  const prev = metaQueue.get(id) ?? Promise.resolve();
+  const next = prev
+    .catch(() => undefined)
+    .then(async () => {
+      const m = patch(await getDocMeta(id));
+      await set(`meta:${id}`, m);
+      return m;
+    });
+  metaQueue.set(id, next);
+  return next;
+}
+
+export async function getAllDocMeta(ids: string[]): Promise<Record<string, DocMeta>> {
+  if (!ids.length) return {};
+  try {
+    const metas = await getMany<DocMeta | undefined>(ids.map((id) => `meta:${id}`));
+    return Object.fromEntries(ids.map((id, i) => [id, metas[i] ?? {}]));
+  } catch {
+    return {};
+  }
+}
+
 export async function deleteDocData(id: string) {
-  await Promise.all([del(`doc:${id}`), del(`text:${id}`)]);
+  await Promise.all([del(`doc:${id}`), del(`text:${id}`), del(`meta:${id}`)]);
+}
+
+/** Preferences of this browser for the library (the rights confirmation is remembered here). */
+export interface LibraryPrefs {
+  consentAt?: string;
+}
+
+export async function getLibraryPrefs(): Promise<LibraryPrefs> {
+  try {
+    return (await get<LibraryPrefs>("library:prefs")) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+export async function setLibraryPrefs(p: LibraryPrefs) {
+  try {
+    await set("library:prefs", p);
+  } catch {
+    /* private mode: the confirmation is asked again next time */
+  }
 }
 
 let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
@@ -58,35 +132,72 @@ export async function openPdf(data: ArrayBuffer) {
 export async function extractPdfText(data: ArrayBuffer, onProgress?: (p: number) => void): Promise<{ pages: PageText[]; numPages: number }> {
   const { doc, close } = await openPdf(data);
   const pages: PageText[] = [];
-  for (let i = 1; i <= doc.numPages; i++) {
-    const page = await doc.getPage(i);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((it) => ("str" in it ? it.str : ""))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-    pages.push({ page: i, text });
-    onProgress?.(i / doc.numPages);
+  try {
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      const content = await page.getTextContent();
+      const items = content.items.filter((it): it is PdfItemLike & typeof it => "str" in it);
+      const { text, headings } = extractPageText(items as unknown as PdfItemLike[]);
+      pages.push({ page: i, text, headings: headings.length ? headings : undefined });
+      onProgress?.(i / doc.numPages);
+    }
+  } finally {
+    await close();
   }
-  await close();
   return { pages, numPages: pages.length };
 }
 
-/** Plain text and notes are split into ~3000-character pseudo-pages. */
+/** True when the extracted text is too thin to be real text (a scan or an image-only PDF). */
+export const looksScanned = (pages: PageText[]) => pages.reduce((a, p) => a + p.text.length, 0) <= pages.length * 40;
+
+/** Re-reads the text of a PDF indexed with an older extraction (words split by spaces). */
+export async function reindexPdf(id: string): Promise<PageText[] | null> {
+  const file = await getDocFile(id);
+  if (!file) return null;
+  const { pages } = await extractPdfText(await file.arrayBuffer());
+  await savePageTexts(id, pages);
+  await patchDocMeta(id, (m) => ({ ...m, textVersion: TEXT_VERSION }));
+  return pages;
+}
+
+/** Plain text and notes are split into ~3000-character pseudo-pages, preferring paragraph breaks. */
 export function splitTextIntoPages(text: string, size = 3000): PageText[] {
-  const clean = text.replace(/\r/g, "");
-  const out: PageText[] = [];
-  let i = 0;
-  let page = 1;
-  while (i < clean.length) {
-    let end = Math.min(clean.length, i + size);
-    const nl = clean.lastIndexOf("\n", end);
-    if (nl > i + size * 0.6) end = nl;
-    out.push({ page: page++, text: clean.slice(i, end).trim() });
-    i = end;
+  return splitPages(text, size);
+}
+
+export interface LibraryHit {
+  docId: string;
+  page: number;
+  count: number;
+  snippet: { text: string; mark: [number, number] | null };
+}
+
+/** Searches the text of every document of the library (accents, case and spaces ignored). */
+export async function searchLibrary(docIds: string[], query: string, maxPerDoc = 3): Promise<{ docId: string; total: number; hits: LibraryHit[] }[]> {
+  if (!docIds.length) return [];
+  let all: (PageText[] | undefined)[] = [];
+  try {
+    all = await getMany<PageText[] | undefined>(docIds.map((id) => `text:${id}`));
+  } catch {
+    return [];
   }
-  return out.filter((p) => p.text);
+  const out: { docId: string; total: number; hits: LibraryHit[] }[] = [];
+  docIds.forEach((docId, i) => {
+    const pages = all[i] ?? [];
+    const hits: LibraryHit[] = [];
+    let total = 0;
+    for (const p of pages) {
+      const count = countLoose(p.text, query);
+      if (!count) continue;
+      total += count;
+      if (hits.length < maxPerDoc) {
+        const sn = snippetLoose(p.text, query);
+        if (sn) hits.push({ docId, page: p.page, count, snippet: sn });
+      }
+    }
+    if (total) out.push({ docId, total, hits });
+  });
+  return out.sort((a, b) => b.total - a.total);
 }
 
 /** BM25 ranking over page-level chunks; returns the best excerpts with page numbers. */

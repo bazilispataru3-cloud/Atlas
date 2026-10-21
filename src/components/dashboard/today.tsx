@@ -101,7 +101,10 @@ export function TodayBlock({
               >
                 <RotateCcw className="h-4 w-4 shrink-0 text-fg-muted" aria-hidden />
                 <span className="min-w-0 leading-tight">
-                  <span className="block text-sm">Riprendi in {MODE_LABEL[resume.mode]}</span>
+                  <span className="block text-sm">
+                    Riprendi in {MODE_LABEL[resume.mode]}
+                    <span className="sr-only">: </span>
+                  </span>
                   <span className="block truncate text-xs font-normal text-fg-muted">{resume.ref.topic.title}</span>
                 </span>
               </Link>
@@ -265,6 +268,7 @@ function TodayPlan({ items, done, hasPlan, restDay }: { items: PlanItem[]; done:
                 {isNext && <span className="sr-only">Prossima attività: </span>}
                 {KIND_META[it.kind].label}
                 {it.minutes > 0 && `, ${fmt.minutes(it.minutes)}`}
+                <span className="sr-only">: </span>
               </span>
               <span className={cn("mt-0.5 block text-sm leading-snug", isDone ? "text-fg-muted line-through decoration-white/25" : "text-fg", isNext && "font-medium")}>{title}</span>
             </>

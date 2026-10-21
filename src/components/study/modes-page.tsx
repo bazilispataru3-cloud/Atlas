@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Link from "next/link";
 import { BookOpenCheck, Clock, Info, Play, Search } from "lucide-react";
 import type { StudyMode, SubjectId } from "@/lib/types";
@@ -15,7 +15,7 @@ import { MODE_TONE, SUBJECT_TONE, TONE } from "@/components/ui/tone";
 import { STATUS_LABEL } from "@/lib/progress";
 import { useUI } from "@/lib/ui-store";
 import { useAtlas } from "@/lib/store";
-import { useHydrated, useTopicStates, type TopicState } from "@/lib/hooks";
+import { useHydrated, useReducedMotion, useTopicStates, type TopicState } from "@/lib/hooks";
 import { fmt, DAY_MS } from "@/lib/utils";
 import { cx } from "./cx";
 
@@ -90,7 +90,9 @@ export function ModesPage() {
   const openStartStudy = useUI((s) => s.openStartStudy);
   const sessions = useAtlas((s) => s.sessions);
   const hydrated = useHydrated();
+  const reduceMotion = useReducedMotion();
   const states = useTopicStates();
+  const detailRef = useRef<HTMLElement>(null);
   const [mode, setMode] = useState<StudyMode>("deep");
   const [ultraSubject, setUltraSubject] = useState<SubjectId>("biologia");
   const kind = KIND_OF[ultraSubject];
@@ -139,6 +141,13 @@ export function ModesPage() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g);
   }, [techniques]);
 
+  // Phones: the cards are stacked, so after tapping one bring its path (and the topics to start from) into view.
+  const onCardTap = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" || !(e.target as HTMLElement).closest(".card")) return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    window.setTimeout(() => detailRef.current?.scrollIntoView({ block: "start", behavior: reduceMotion ? "auto" : "smooth" }), 120);
+  };
+
   return (
     <div className="pb-8">
       <PageHeader
@@ -146,14 +155,14 @@ export function ModesPage() {
         description="Fast, Deep e Ultra non sono livelli di difficoltà: cambiano quanto va in profondità il percorso e quali strumenti usa. Scegli in base al tempo che hai e a cosa devi saper fare; poi scegli l’argomento e parti."
       />
 
-      <div role="radiogroup" aria-label="Modalità di studio" className="mt-8 grid gap-2.5 md:grid-cols-3 md:gap-4">
+      <div role="radiogroup" aria-label="Modalità di studio" onPointerUp={onCardTap} className="mt-8 grid gap-2.5 md:grid-cols-3 md:gap-4">
         {MODES.map((m) => (
           <ModeCard key={m} mode={m} selected={m === mode} onSelect={() => setMode(m)} layout="responsive" name="modalita" ultraKind={kind} animateArt headingLevel={2} />
         ))}
       </div>
 
       {/* The chosen mode: its path and where to start */}
-      <section aria-labelledby="mode-detail" className="card mt-5 grid gap-x-12 gap-y-8 p-5 sm:p-7 lg:grid-cols-2">
+      <section ref={detailRef} aria-labelledby="mode-detail" className="card mt-5 grid scroll-mt-20 gap-x-12 gap-y-8 p-5 sm:p-7 lg:grid-cols-2">
         <div>
           <h2 id="mode-detail" className="flex items-center gap-2.5 font-display text-2xl leading-tight text-fg sm:text-3xl">
             <meta.icon className={cx("h-5 w-5 shrink-0", TONE[MODE_TONE[mode]].text)} aria-hidden />
@@ -172,7 +181,7 @@ export function ModesPage() {
                 ariaLabel="Materia del percorso Ultra"
                 value={ultraSubject}
                 onChange={setUltraSubject}
-                options={SUBJECTS.map((s) => ({ value: s.id, label: s.name }))}
+                options={SUBJECTS.map((s) => ({ value: s.id, label: s.name.split(" e ")[0] }))}
               />
               <p className="mt-3 max-w-[60ch] text-ui leading-relaxed text-fg-muted">{ULTRA_RATIONALE[kind]}</p>
             </div>
@@ -242,7 +251,7 @@ export function ModesPage() {
           <ul className="mt-2 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
             {techniques.map((t) => (
               <li key={t.id} className="border-b border-white/[0.05]">
-                <Link href={`/academy/${t.id}`} className="flex min-h-12 items-center justify-between gap-3 py-2 text-sm text-fg transition-colors hover:text-azure-200">
+                <Link href={`/academy/${t.id}`} className="group flex min-h-12 items-center justify-between gap-3 py-2 text-sm text-fg transition-colors hover:text-azure-200">
                   <span className="underline decoration-white/0 underline-offset-4 transition-[text-decoration-color] group-hover:decoration-white/30">{t.name}</span>
                   <span className="shrink-0 text-xs text-fg-muted">Evidenza {t.evidence.level}</span>
                 </Link>

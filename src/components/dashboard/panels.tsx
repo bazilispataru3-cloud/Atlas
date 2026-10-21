@@ -152,7 +152,12 @@ export function ProgressPanel({
           </div>
         </div>
       </div>
-      <p className="mt-3 max-w-[65ch] text-xs leading-relaxed text-fg-subtle">La serie conta i giorni consecutivi con almeno 10 minuti di studio.</p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <p className="max-w-[52ch] text-xs leading-relaxed text-fg-subtle">La serie conta i giorni consecutivi con almeno 10 minuti di studio.</p>
+        <Link href="/profilo#pf-goal" className={cn(LINK, "min-h-11 text-xs sm:min-h-10")}>
+          Cambia l’obiettivo
+        </Link>
+      </div>
 
       <div className="mt-5 border-t border-white/[0.06] pt-5">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
@@ -253,8 +258,11 @@ export function NextStepsPanel({ tips, className }: { tips: Suggestion[]; classN
                   <Icon className={cn("h-4 w-4", color)} strokeWidth={1.75} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium leading-snug text-fg">{t.title}</span>
-                  <span className="mt-0.5 line-clamp-2 block text-xs leading-relaxed text-fg-muted">{t.reason}</span>
+                  <span className="block text-sm font-medium leading-snug text-fg">
+                    {t.title}
+                    <span className="sr-only">. </span>
+                  </span>
+                  <span className="mt-0.5 line-clamp-2 block max-w-[65ch] text-xs leading-relaxed text-fg-muted">{t.reason}<span className="sr-only"> </span></span>
                   <span className="mt-1 block text-xs text-fg-subtle">
                     {t.cta}, circa {fmt.minutes(t.minutes)}
                   </span>

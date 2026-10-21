@@ -1,65 +1,98 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import {
-  ArrowLeft, BookOpen, BookText, Calculator, Clock, ExternalLink, FileText, GalleryVerticalEnd, Image as ImageIcon, Lightbulb, ListChecks,
-  MonitorPlay, Play, Plus, ShieldCheck, Sparkles, Target,
-} from "lucide-react";
-import type { Source } from "@/lib/types";
-import { getTopicRef, SYLLABUS_SOURCE } from "@/data/syllabus";
+import { ChevronLeft, ChevronRight, Clock, ListChecks, Play, Sparkles, Telescope } from "lucide-react";
+import type { StudyMode } from "@/lib/types";
+import { allTopicRefs, getTopicRef } from "@/data/syllabus";
 import { getLesson } from "@/data/lessons";
 import { questionsFor } from "@/data/questions";
-import { getResource, resourcesForTopic } from "@/data/resources";
 import { MODE_INFO } from "@/data/academy";
-import { AiExplain, Definitions, Objectives, Schema, SectionsView } from "@/components/study/steps";
-import { LessonDiagram, DIAGRAM_CAPTION } from "@/components/diagrams/diagrams";
-import { ConceptMapView } from "@/components/exercises/concept-map";
-import { FlipCards, GuidedProblems } from "@/components/exercises/prompts";
-import { QuizRunner } from "@/components/exercises/quiz-runner";
-import { ResourceCard } from "@/components/resources/resource-card";
-import { Badge, Button, Card, Notice, ProgressRing } from "@/components/ui/primitives";
-import { Paragraphs, RichText } from "@/components/ui/rich-text";
+import { sectionAnchor } from "@/components/study/steps";
+import { Badge, Button, buttonClasses, ProgressRing, Skeleton, TabPanel, Tabs, tabIds } from "@/components/ui/primitives";
 import { StatusBadge } from "@/components/ui/status";
 import { MODE_TONE, SUBJECT_TONE, TONE } from "@/components/ui/tone";
-import { toast } from "@/components/ui/toast";
 import { useHydrated, useTopicStates } from "@/lib/hooks";
-import { useRecordQuiz } from "@/lib/record";
 import { useAtlas } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import type { TopicProgress, TopicStatus } from "@/lib/progress";
 import { cn, fmt } from "@/lib/utils";
+import { AdvancedBadge, cfu, useScrollPaddingTop } from "./shared";
+import {
+  AdvancedPanel,
+  DiagramsPanel,
+  ExamplesPanel,
+  ExplanationPanel,
+  FlashcardPanel,
+  IntroPanel,
+  OverviewPanel,
+  QuizPanel,
+  SourcesPanel,
+  STICKY_OFFSET,
+  VideoPanel,
+  type TabId,
+} from "./topic-panels";
 
-type TabId = "panoramica" | "spiegazione" | "esempi" | "diagrammi" | "video" | "flashcard" | "quiz" | "approfondimenti" | "fonti";
-
-const TAB_META: Record<TabId, { label: string; icon: typeof BookOpen }> = {
-  panoramica: { label: "Lezione introduttiva", icon: BookOpen },
-  spiegazione: { label: "Spiegazione", icon: BookText },
-  esempi: { label: "Esempi ed esercizi", icon: Calculator },
-  diagrammi: { label: "Diagrammi e mappa", icon: ImageIcon },
-  video: { label: "Video e corsi", icon: MonitorPlay },
-  flashcard: { label: "Flashcard", icon: GalleryVerticalEnd },
-  quiz: { label: "Quiz", icon: ListChecks },
-  approfondimenti: { label: "Approfondimenti", icon: Sparkles },
-  fonti: { label: "Fonti", icon: FileText },
+const TAB_LABEL: Record<TabId, string> = {
+  panoramica: "Introduzione",
+  spiegazione: "Spiegazione",
+  esempi: "Esempi ed esercizi",
+  diagrammi: "Diagrammi e mappa",
+  video: "Video e corsi",
+  flashcard: "Flashcard",
+  quiz: "Quiz",
+  approfondimenti: "Approfondimenti",
+  fonti: "Fonti",
 };
 
-function SourceItem({ s }: { s: Source }) {
-  const href = s.url ?? (s.doi ? `https://doi.org/${s.doi}` : undefined);
-  const kind = { ufficiale: "Fonte ufficiale", manuale: "Manuale", articolo: "Articolo scientifico", "risorsa-aperta": "Risorsa aperta" }[s.kind];
+const TABS_BASE = "argomento";
+const MODES: StudyMode[] = ["fast", "deep", "ultra"];
+
+/** The mode worth suggesting: a new topic deserves the full path; one to consolidate, a fast review and quiz. */
+function suggestedMode(status: TopicStatus | undefined): StudyMode | null {
+  if (status === "consolidato") return null;
+  if (status === "da-consolidare") return "fast";
+  return "deep";
+}
+
+/** What the status means and what moves it forward (thresholds from lib/progress: 45% and 80% + a quiz at 80%). */
+function nextStep(status: TopicStatus, mastery: number, p: TopicProgress | undefined, hasLesson: boolean): { text: string; quiz: boolean; cards: boolean } {
+  const bestQuiz = p?.quiz.length ? Math.max(...p.quiz.map((q) => q.score)) : null;
+  const assessed = !!p && (p.quiz.length > 0 || p.recall.length > 0);
+  switch (status) {
+    case "nuovo":
+      return {
+        text: `${hasLesson ? "Scegli una modalità per iniziare." : "Inizia dalla sessione guidata."} La padronanza cresce con quiz, richiamo attivo e flashcard, non con la sola lettura.`,
+        quiz: false,
+        cards: false,
+      };
+    case "in-corso":
+      return assessed
+        ? { text: "Con il 45% di padronanza l’argomento passa a «Da consolidare». Ripassa e rifai il quiz.", quiz: true, cards: false }
+        : { text: "Hai iniziato a studiarlo. Fai il quiz per misurare quanto ricordi: la lettura da sola non cambia la padronanza.", quiz: true, cards: false };
+    case "da-consolidare": {
+      const missing: string[] = [];
+      if (mastery < 0.8) missing.push(`ti mancano ${Math.max(1, Math.ceil((0.8 - mastery) * 100))} punti di padronanza`);
+      if (bestQuiz === null || bestQuiz < 0.8) missing.push(bestQuiz === null ? "serve un quiz con almeno l’80%" : `il tuo miglior quiz è ${fmt.percent(bestQuiz)}, serve l’80%`);
+      return { text: `Per «Consolidato» servono l’80% di padronanza e un quiz con almeno l’80%: ${missing.join(" e ")}.`, quiz: true, cards: false };
+    }
+    case "consolidato":
+      return { text: "Argomento consolidato. Ripassalo con le flashcard nei giorni indicati per non dimenticarlo.", quiz: false, cards: true };
+  }
+}
+
+function Crumbs({ children }: { children: ReactNode[] }) {
   return (
-    <li className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={s.kind === "ufficiale" ? "azure" : "muted"}>{kind}</Badge>
-        {s.doi && <span className="font-mono text-[11px] text-fg-subtle">doi:{s.doi}</span>}
-      </div>
-      <div className="mt-2 text-[13.5px] leading-relaxed text-fg">{s.label}</div>
-      {s.detail && <div className="mt-1 text-[12.5px] text-fg-subtle">{s.detail}</div>}
-      {href && (
-        <a href={href} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-[12.5px] text-azure-300 hover:underline">
-          Apri la fonte <ExternalLink className="h-3 w-3" />
-        </a>
-      )}
-    </li>
+    <nav aria-label="Percorso" className="text-sm text-fg-subtle">
+      <ol className="flex flex-wrap items-center gap-x-1 gap-y-1">
+        {children.map((c, i) => (
+          <li key={i} className={cn("inline-flex items-center gap-1", i === children.length - 1 && "max-md:hidden")}>
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-fg-faint" aria-hidden />}
+            {c}
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -70,302 +103,288 @@ export function TopicPage({ topicId }: { topicId: string }) {
   const states = useTopicStates(ref.subject.id);
   const state = hydrated ? states.find((s) => s.ref.topic.id === topicId) : undefined;
   const progress = useAtlas((s) => (hydrated ? s.progress[topicId] : undefined));
-  const addCards = useAtlas((s) => s.addCards);
-  const openProfessor = useUI((s) => s.openProfessor);
   const showAdvanced = useAtlas((s) => s.settings.showAdvanced);
-  const recordQuiz = useRecordQuiz();
+  const openProfessor = useUI((s) => s.openProfessor);
   const tone = SUBJECT_TONE[ref.subject.id];
-
-  const questions = useMemo(() => questionsFor({ topicIds: [topicId] }), [topicId]);
-  const resources = useMemo(() => {
-    const fromLesson = (lesson?.videoIds ?? []).map((id) => getResource(id)).filter((r): r is NonNullable<typeof r> => !!r);
-    const seen = new Set<string>();
-    return [...fromLesson, ...resourcesForTopic(topicId, ref.subject.id)].filter((r) => r.access === "free" && !seen.has(r.id) && seen.add(r.id));
-  }, [lesson, topicId, ref.subject.id]);
+  const hasQuestions = useMemo(() => questionsFor({ topicIds: [topicId] }).length > 0, [topicId]);
 
   const tabs: TabId[] = lesson
-    ? ["panoramica", "spiegazione", "esempi", "diagrammi", "video", "flashcard", "quiz", ...(showAdvanced ? (["approfondimenti"] as TabId[]) : []), "fonti"]
-    : ["panoramica", "video", ...(questions.length ? (["quiz"] as TabId[]) : []), "fonti"];
+    ? ["panoramica", "spiegazione", "esempi", "diagrammi", "video", "flashcard", "quiz", ...(showAdvanced && lesson.advanced.length ? (["approfondimenti"] as TabId[]) : []), "fonti"]
+    : ["panoramica", "video", ...(hasQuestions ? (["quiz"] as TabId[]) : []), "fonti"];
   const [tab, setTab] = useState<TabId>("panoramica");
-  const [quizKey, setQuizKey] = useState(0);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const pendingSection = useRef<string | null>(null);
 
-  // Deep links: /materie/biologia/bio-mitocondri#quiz
+  // Anchors and keyboard focus stop below the top bar and the sticky tab bar (WCAG 2.4.11).
+  useScrollPaddingTop(STICKY_OFFSET / 16);
+
+  // Deep links: /materie/biologia/bio-mitocondri#quiz, or #sezione-<id> for a section of the explanation.
   useEffect(() => {
-    const h = window.location.hash.slice(1) as TabId;
-    if (h && h in TAB_META) setTab(h);
+    const h = decodeURIComponent(window.location.hash.slice(1));
+    if (!h) return;
+    if ((tabs as string[]).includes(h)) setTab(h as TabId);
+    else if (lesson && h.startsWith(sectionAnchor(""))) {
+      pendingSection.current = h;
+      setTab("spiegazione");
+    }
+    // Read once on arrival; later changes go through `select`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEffect(() => {
+    if (tab !== "spiegazione" || !pendingSection.current) return;
+    const el = document.getElementById(pendingSection.current);
+    pendingSection.current = null;
+    if (el) requestAnimationFrame(() => window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - STICKY_OFFSET }));
+  }, [tab]);
+
+  // Keeps the active tab visible inside the horizontally scrolling tab bar (phones, deep links).
+  useEffect(() => {
+    const el = document.getElementById(tabIds(TABS_BASE, tab).tab);
+    const scroller = el?.closest<HTMLElement>(".overflow-x-auto");
+    if (!el || !scroller) return;
+    const r = el.getBoundingClientRect();
+    const s = scroller.getBoundingClientRect();
+    if (r.left < s.left + 24) scroller.scrollLeft -= s.left + 24 - r.left;
+    else if (r.right > s.right - 24) scroller.scrollLeft += r.right - (s.right - 24);
+  }, [tab]);
+
+  /** Switches panel; if the reader is deep in a long panel, the new one starts under the tab bar. */
   const select = (t: TabId) => {
     setTab(t);
     window.history.replaceState(null, "", `#${t}`);
+    const s = sentinelRef.current;
+    if (!s) return;
+    const top = s.getBoundingClientRect().top + window.scrollY - 56;
+    if (window.scrollY > top) window.scrollTo({ top });
+  };
+  /** From a button inside a panel or the header: switch, then focus the new panel so focus never falls to <body>. */
+  const goTo = (t: TabId) => {
+    if (!tabs.includes(t)) return;
+    select(t);
+    requestAnimationFrame(() => document.getElementById(tabIds(TABS_BASE, t).panel)?.focus({ preventScroll: true }));
   };
 
+  // Neighbours in syllabus order, to keep going without returning to the subject.
+  const { prev, next } = useMemo(() => {
+    const list = allTopicRefs().filter((r) => r.subject.id === ref.subject.id);
+    const i = list.findIndex((r) => r.topic.id === topicId);
+    return { prev: i > 0 ? list[i - 1] : undefined, next: i >= 0 && i < list.length - 1 ? list[i + 1] : undefined };
+  }, [ref.subject.id, topicId]);
+
+  const status = state?.status;
+  const mastery = state?.mastery ?? 0;
+  const suggested = hydrated ? suggestedMode(status) : "deep";
+  const step = hydrated && state ? nextStep(state.status, mastery, progress, !!lesson) : null;
+  const bestQuiz = progress?.quiz.length ? Math.max(...progress.quiz.map((q) => q.score)) : null;
   const readCount = lesson ? lesson.sections.filter((s) => progress?.sectionsRead.includes(s.id)).length : 0;
 
   return (
-    <div className="pb-16">
-      <nav className="flex flex-wrap items-center gap-1.5 text-[12.5px] text-fg-subtle" aria-label="Percorso">
-        <Link href="/materie" className="inline-flex items-center gap-1 hover:text-fg"><ArrowLeft className="h-3.5 w-3.5" /> Materie</Link>
-        <span>/</span>
-        <Link href={`/materie/${ref.subject.id}`} className={cn("hover:underline", TONE[tone].text)}>{ref.subject.name}</Link>
-        <span>/</span>
-        <Link href={`/materie/${ref.subject.id}#${ref.unit.id}`} className="hover:text-fg">Unità {ref.unit.number}</Link>
-        <span className="hidden sm:inline">/</span>
-        <span className="hidden sm:inline">{ref.chapter.title}</span>
-      </nav>
+    <div className="pb-10">
+      <Crumbs>
+        {[
+          <Link key="m" href="/materie" className="inline-flex min-h-6 items-center transition-colors hover:text-fg">
+            Le mie materie
+          </Link>,
+          <Link key="s" href={`/materie/${ref.subject.id}`} className="inline-flex min-h-6 items-center gap-1.5 transition-colors hover:text-fg">
+            <span className={cn("h-2 w-2 rounded-full", TONE[tone].dot)} aria-hidden />
+            {ref.subject.name}
+          </Link>,
+          <Link key="u" href={`/materie/${ref.subject.id}#${ref.unit.id}`} className="inline-flex min-h-6 items-center transition-colors hover:text-fg">
+            Unità {ref.unit.number}
+          </Link>,
+          <span key="c">{ref.chapter.title}</span>,
+        ]}
+      </Crumbs>
 
-      <header className="mt-4 grid gap-6 lg:grid-cols-[1fr_auto]">
-        <div className="min-w-0 animate-fade-up">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="azure"><ShieldCheck className="h-3 w-3" /> PROGRAMMA UFFICIALE</Badge>
-            {state && <StatusBadge status={state.status} />}
+      <header className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
+        <div className="min-w-0">
+          <h1 className="font-display text-[2rem] leading-[1.08] tracking-[-0.015em] text-fg [text-wrap:balance] sm:text-4xl lg:text-5xl">{ref.topic.title}</h1>
+          <p className="mt-3 max-w-[62ch] text-sm leading-relaxed text-fg-muted">
+            Unità {ref.unit.number}. {ref.unit.title} ({cfu(ref.unit.cfu)})
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+            {ref.topic.advanced && <AdvancedBadge />}
             {lesson ? (
-              <Badge tone="muted"><Clock className="h-3 w-3" /> Lettura ~{lesson.readingMinutes} min</Badge>
+              <span className="inline-flex items-center gap-1.5 text-ui text-fg-muted">
+                <Clock className="h-3.5 w-3.5 text-fg-subtle" aria-hidden /> Lettura di circa {lesson.readingMinutes} minuti
+              </span>
             ) : (
-              <Badge tone="warning">Lezione ATLAS in preparazione</Badge>
+              <Badge tone="muted">Lezione ATLAS in preparazione</Badge>
             )}
           </div>
-          <h1 className="mt-3 font-display text-4xl leading-[1.05] text-fg md:text-5xl">{ref.topic.title}</h1>
-          <p className="mt-3 max-w-3xl text-[14px] leading-relaxed text-fg-subtle">
-            {ref.unit.title} · {ref.unit.cfu} CFU
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {(["fast", "deep", "ultra"] as const).map((m) => (
-              <Button key={m} variant={m === "deep" ? "primary" : "secondary"} href={`/studio/${topicId}?mode=${m}`}>
-                <Play className={cn("h-3.5 w-3.5 fill-current", m !== "deep" && TONE[MODE_TONE[m]].text)} /> {MODE_INFO[m].name}
+
+          {/* Start: one click from the topic to a study session. */}
+          {lesson ? (
+            <div className="mt-7">
+              <h2 className="text-ui font-medium text-fg-muted">Studia con una modalità</h2>
+              <ul className="mt-2.5 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap">
+                {MODES.map((m) => {
+                  const primary = m === suggested;
+                  const [first] = MODE_INFO[m].name.split(" ");
+                  return (
+                    <li key={m} className="min-w-0">
+                      <Link
+                        href={`/studio/${topicId}?mode=${m}`}
+                        className={buttonClasses(
+                          primary ? "primary" : "secondary",
+                          "lg",
+                          "h-auto min-h-14 w-full flex-col items-start justify-center gap-0.5 px-3.5 py-2 sm:w-auto sm:min-w-[9.75rem]",
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 text-sm font-semibold">
+                          <Play className={cn("h-3.5 w-3.5 shrink-0 fill-current", !primary && TONE[MODE_TONE[m]].text)} aria-hidden />
+                          <span className="sr-only">Studia in modalità </span>
+                          {first}
+                          <span className="max-sm:sr-only"> Study</span>
+                        </span>
+                        <span className={cn("text-xs font-normal", primary ? "text-white" : "text-fg-muted")}>
+                          {MODE_INFO[m].time}
+                          {primary && <span className="sr-only">, consigliata</span>}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              <Button variant="ghost" className="-ml-3 mt-2" onClick={() => openProfessor({ topicId })}>
+                <Sparkles className="h-4 w-4 text-azure-300" aria-hidden /> Chiedi all’AI Professor
               </Button>
-            ))}
-            <Button variant="ghost" onClick={() => openProfessor({ topicId })}>
-              <Sparkles className="h-4 w-4 text-azure-300" /> Chiedi al Professor
-            </Button>
-          </div>
+            </div>
+          ) : (
+            <div className="mt-7">
+              <div className="flex flex-wrap gap-2">
+                <Button variant="primary" size="lg" href={`/studio/${topicId}`}>
+                  <Play className="h-4 w-4 fill-current" aria-hidden /> Inizia la sessione guidata
+                </Button>
+                <Button variant="ghost" size="lg" onClick={() => openProfessor({ topicId })}>
+                  <Sparkles className="h-4 w-4 text-azure-300" aria-hidden /> Chiedi all’AI Professor
+                </Button>
+              </div>
+              <p className="mt-3 max-w-[60ch] text-ui leading-relaxed text-fg-subtle">
+                Obiettivi, risorse, spiegazione dell’AI Professor e richiamo attivo. Le modalità Fast, Deep e Ultra arriveranno con la lezione ATLAS.
+              </p>
+            </div>
+          )}
         </div>
-        <Card className="flex items-center gap-4 self-start p-4 lg:w-72">
-          <ProgressRing value={state?.mastery ?? 0} size={72} stroke={7} tone={tone} label="Padronanza">
-            <span className="font-mono text-[15px] text-fg">{fmt.percent(state?.mastery ?? 0)}</span>
-          </ProgressRing>
-          <div className="min-w-0 text-[12.5px] leading-relaxed text-fg-subtle">
-            <div className="text-[13px] font-medium text-fg">Padronanza</div>
-            {progress?.quiz.length ? <div>Ultimo quiz: {fmt.percent(progress.quiz.at(-1)!.score)}</div> : <div>Nessun quiz svolto</div>}
-            {lesson && <div>Sezioni lette: {readCount}/{lesson.sections.length}</div>}
-            <div className="text-[11.5px]">La lettura non aumenta la padronanza.</div>
-          </div>
-        </Card>
+
+        {/* Right column: a 3:2 licensed image can later sit above this panel without changing the grid. */}
+        <div className="flex min-w-0 flex-col gap-4">
+          <section aria-labelledby="avanzamento-h" className="card p-5">
+            <h2 id="avanzamento-h" className="text-ui font-medium text-fg-muted">
+              Il tuo avanzamento
+            </h2>
+            <div className="mt-3 flex items-center gap-4">
+              {hydrated ? (
+                <ProgressRing value={mastery} size={64} stroke={6} tone={tone} label={`Padronanza ${fmt.percent(mastery)}`}>
+                  <span className="text-base font-semibold tabular-nums text-fg">{fmt.percent(mastery)}</span>
+                </ProgressRing>
+              ) : (
+                <Skeleton className="h-16 w-16 rounded-full" />
+              )}
+              <div className="min-w-0">
+                <div className="text-sm text-fg">Padronanza</div>
+                {status ? <StatusBadge status={status} className="mt-1.5" /> : <Skeleton className="mt-1.5 h-6 w-24" />}
+              </div>
+            </div>
+            {step ? (
+              <p className="mt-4 max-w-[60ch] text-ui leading-relaxed text-fg-reading">{step.text}</p>
+            ) : (
+              <Skeleton className="mt-4 h-10 w-full" />
+            )}
+            {step?.quiz && tabs.includes("quiz") && (
+              <Button variant="secondary" size="sm" className="mt-3 h-10 sm:h-8" onClick={() => goTo("quiz")}>
+                <ListChecks className="h-3.5 w-3.5" aria-hidden /> Fai il quiz
+              </Button>
+            )}
+            {step?.cards && (
+              <Button variant="secondary" size="sm" className="mt-3 h-10 sm:h-8" href="/flashcard">
+                Ripassa le flashcard
+              </Button>
+            )}
+            <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-4">
+              <div className="min-w-0">
+                <dt className="text-xs text-fg-subtle">Ultimo studio</dt>
+                <dd className="mt-0.5 text-sm text-fg">{progress?.lastStudied ? fmt.dateShort(progress.lastStudied) : "Mai"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-xs text-fg-subtle">Miglior quiz</dt>
+                <dd className="mt-0.5 text-sm text-fg">
+                  {bestQuiz !== null ? (
+                    <>
+                      {fmt.percent(bestQuiz)}
+                      <span className="sr-only">, su {progress!.quiz.length} quiz</span>
+                    </>
+                  ) : (
+                    "Nessuno"
+                  )}
+                </dd>
+              </div>
+              {lesson && (
+                <div className="min-w-0">
+                  <dt className="text-xs text-fg-subtle">Sezioni lette</dt>
+                  <dd className="mt-0.5 text-sm tabular-nums text-fg">
+                    {readCount} di {lesson.sections.length}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+        </div>
       </header>
 
-      {/* Tabs */}
-      <div className="sticky top-14 z-10 -mx-4 mt-8 border-b border-white/[0.06] bg-ink-950/85 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:top-16 lg:-mx-10 lg:px-10">
-        <div className="no-scrollbar flex gap-1 overflow-x-auto" role="tablist" aria-label="Sezioni dell’argomento">
-          {tabs.map((t) => {
-            const Icon = TAB_META[t].icon;
-            const active = t === tab;
-            return (
-              <button
-                key={t}
-                role="tab"
-                aria-selected={active}
-                onClick={() => select(t)}
-                className={cn(
-                  "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-3 text-[13px] transition",
-                  active ? "text-fg" : "text-fg-subtle hover:text-fg-muted",
-                  t === "approfondimenti" && (active ? "text-gold-200" : "text-gold-300/70"),
-                )}
-              >
-                <Icon className="h-4 w-4" /> {TAB_META[t].label}
-                {active && <span className={cn("absolute inset-x-2 bottom-0 h-0.5 rounded-full", t === "approfondimenti" ? "bg-gold-400" : "bg-azure-400")} />}
-              </button>
-            );
-          })}
-        </div>
+      {/* Sections of the topic: opaque, under the top bar (z-30), above the content. */}
+      <div ref={sentinelRef} aria-hidden />
+      <div className="sticky top-14 z-20 -mx-4 mt-10 bg-ink-950 px-4 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+        <Tabs
+          base={TABS_BASE}
+          value={tab}
+          onChange={select}
+          ariaLabel="Sezioni dell’argomento"
+          items={tabs.map((t) => ({
+            value: t,
+            label: t === "panoramica" && !lesson ? "Panoramica" : TAB_LABEL[t],
+            icon: t === "approfondimenti" ? <Telescope /> : undefined,
+          }))}
+        />
       </div>
 
-      <div className="mt-8" role="tabpanel">
-        {tab === "panoramica" && (
-          <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
-            <div className="space-y-8">
-              {lesson ? (
-                <>
-                  <section>
-                    <h2 className="font-display text-[1.9rem] text-fg">Introduzione</h2>
-                    <Paragraphs items={lesson.intro} className="mt-3" />
-                  </section>
-                  <section>
-                    <h2 className="mb-3 font-display text-[1.6rem] text-fg">Concetti chiave</h2>
-                    <ul className="grid gap-2 sm:grid-cols-2">
-                      {lesson.keyConcepts.map((k) => (
-                        <li key={k} className="flex gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-3 text-[13.5px] text-fg-muted">
-                          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" /> <RichText text={k} />
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                  <section>
-                    <h2 className="mb-3 font-display text-[1.6rem] text-fg">Schema</h2>
-                    <Schema lesson={lesson} />
-                  </section>
-                  <section>
-                    <h2 className="mb-3 font-display text-[1.6rem] text-fg">Definizioni</h2>
-                    <Definitions lesson={lesson} />
-                  </section>
-                </>
-              ) : (
-                <>
-                  <Notice tone="info" title="Lezione completa in preparazione">
-                    Per questo argomento ATLAS non ha ancora una lezione scritta e revisionata. Trovi qui il testo ufficiale del syllabus, i sottoargomenti da coprire, le risorse verificate e — se configurato — l’AI Professor, che spiega a partire dal syllabus e segnala le incertezze.
-                  </Notice>
-                  <Card className="p-5">
-                    <AiExplain ref={ref} />
-                  </Card>
-                </>
-              )}
-            </div>
-            <aside className="space-y-4">
-              <Card className="p-5">
-                <div className="mb-3 flex items-center gap-2 text-[14px] font-semibold text-fg"><Target className="h-4 w-4 text-azure-300" /> Obiettivi del syllabus</div>
-                <Objectives ref={ref} lesson={lesson} />
-              </Card>
-            </aside>
-          </div>
-        )}
+      <TabPanel key={tab} base={TABS_BASE} value={tab} className="mt-8 rounded-lg">
+        {tab === "panoramica" && (lesson ? <IntroPanel ref={ref} lesson={lesson} onGoTo={goTo} /> : <OverviewPanel ref={ref} />)}
+        {tab === "spiegazione" && lesson && <ExplanationPanel lesson={lesson} topicId={topicId} onGoTo={goTo} canQuiz={hasQuestions} />}
+        {tab === "esempi" && lesson && <ExamplesPanel lesson={lesson} />}
+        {tab === "diagrammi" && lesson && <DiagramsPanel lesson={lesson} />}
+        {tab === "video" && <VideoPanel ref={ref} lesson={lesson} />}
+        {tab === "flashcard" && lesson && <FlashcardPanel ref={ref} lesson={lesson} />}
+        {tab === "quiz" && <QuizPanel ref={ref} />}
+        {tab === "approfondimenti" && lesson && <AdvancedPanel lesson={lesson} />}
+        {tab === "fonti" && <SourcesPanel ref={ref} lesson={lesson} />}
+      </TabPanel>
 
-        {tab === "spiegazione" && lesson && (
-          <div className="mx-auto max-w-3xl">
-            <SectionsView lesson={lesson} topicId={topicId} />
-            <Notice tone="info" className="mt-10">Segnare una sezione come letta aiuta a orientarti, ma non cambia la padronanza: per quella servono quiz e richiamo attivo.</Notice>
-          </div>
-        )}
-
-        {tab === "esempi" && lesson && (
-          <div className="space-y-8">
-            <section>
-              <h2 className="mb-3 font-display text-[1.6rem] text-fg">Esempi e applicazioni</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {lesson.examples.map((e) => (
-                  <Card key={e.title} className="p-5">
-                    <div className="text-[14.5px] font-semibold text-fg">{e.title}</div>
-                    <RichText text={e.body} className="mt-2 block text-[13.5px] leading-relaxed text-fg-muted" />
-                  </Card>
-                ))}
-              </div>
-            </section>
-            {lesson.guidedProblems.length > 0 && (
-              <section>
-                <h2 className="mb-3 font-display text-[1.6rem] text-fg">Problemi guidati</h2>
-                <GuidedProblems problems={lesson.guidedProblems} />
-              </section>
-            )}
-          </div>
-        )}
-
-        {tab === "diagrammi" && lesson && (
-          <div className="space-y-8">
-            {lesson.diagram && (
-              <Card className="p-5">
-                <LessonDiagram kind={lesson.diagram} />
-                <p className="mt-3 text-[12.5px] leading-relaxed text-fg-subtle">{DIAGRAM_CAPTION[lesson.diagram]}</p>
-              </Card>
-            )}
-            <section>
-              <h2 className="mb-3 font-display text-[1.6rem] text-fg">Mappa concettuale</h2>
-              <Card className="p-4">
-                <ConceptMapView map={lesson.conceptMap} />
-              </Card>
-            </section>
-          </div>
-        )}
-
-        {tab === "video" && (
-          <div>
-            {resources.length ? (
-              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {resources.map((r) => <ResourceCard key={r.id} r={r} />)}
-              </div>
-            ) : (
-              <Notice tone="info">Nessuna risorsa del catalogo verificato è collegata a questo argomento.</Notice>
-            )}
-            <Button variant="secondary" className="mt-6" href={`/risorse?topic=${topicId}`}>
-              <MonitorPlay className="h-4 w-4" /> Cerca altre videolezioni e corsi
-            </Button>
-          </div>
-        )}
-
-        {tab === "flashcard" && lesson && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[13.5px] text-fg-muted">Gira le carte e prova a rispondere prima di vedere il retro. Aggiungile al mazzo per la ripetizione dilazionata.</p>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  const n = addCards(lesson.flashcards.map((f) => ({ front: f.front, back: f.back, topicId, subject: ref.subject.id, deck: ref.topic.title, origin: "atlas" as const })));
-                  toast(n ? `${n} flashcard aggiunte al ripasso` : "Flashcard già presenti nel mazzo", { tone: n ? "success" : "info" });
-                }}
-              >
-                <Plus className="h-4 w-4" /> Aggiungi tutte al ripasso
-              </Button>
-            </div>
-            <FlipCards cards={lesson.flashcards} topicId={topicId} subject={ref.subject.id} deck={ref.topic.title} />
-          </div>
-        )}
-
-        {tab === "quiz" && (
-          <div className="mx-auto max-w-3xl space-y-3">
-            {questions.length ? (
-              <>
-                <p className="text-[12.5px] text-fg-subtle">
-                  {questions.length} quesiti originali ATLAS nel formato d’esame (risposta multipla a 5 opzioni e completamento). Non sono quesiti ministeriali.
-                </p>
-                <QuizRunner
-                  key={quizKey}
-                  questions={questions}
-                  variant="progressive"
-                  title={`Quiz · ${ref.topic.title}`}
-                  seed={quizKey + 1}
-                  onFinish={(o) => recordQuiz(o, { kind: "quiz", title: `Quiz · ${ref.topic.title}`, subject: ref.subject.id })}
-                />
-                <Button variant="ghost" size="sm" onClick={() => setQuizKey((k) => k + 1)}>Ricomincia con un altro ordine</Button>
-              </>
-            ) : (
-              <Notice tone="info">La banca ATLAS non contiene ancora quesiti per questo argomento. Puoi esercitarti con il quiz misto di {ref.subject.name}.</Notice>
-            )}
-          </div>
-        )}
-
-        {tab === "approfondimenti" && lesson && (
-          <div className="mx-auto max-w-3xl space-y-6">
-            <div className="rounded-2xl border border-gold-400/30 bg-gold-500/[0.06] p-4 text-[13px] leading-relaxed text-gold-100/80">
-              <Badge tone="gold" className="mb-2"><Sparkles className="h-3 w-3" /> APPROFONDIMENTO AVANZATO</Badge>
-              <p>Questi contenuti vanno oltre il programma ufficiale: servono a capire meglio, ma non sono richiesti dal syllabus del semestre filtro.</p>
-            </div>
-            {lesson.advanced.map((a) => (
-              <Card key={a.title} className="border-gold-400/20 p-6">
-                <h2 className="font-display text-[1.6rem] text-gold-100">{a.title}</h2>
-                <Paragraphs items={a.body} className="mt-3" />
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {tab === "fonti" && (
-          <div className="mx-auto max-w-3xl space-y-6">
-            <section>
-              <h2 className="mb-3 text-[15px] font-semibold text-fg">Programma</h2>
-              <ul className="space-y-3">
-                <SourceItem s={{ label: `${SYLLABUS_SOURCE.label} — ${ref.subject.name}`, url: SYLLABUS_SOURCE.pdf[ref.subject.id], detail: `Pubblicato il ${fmt.dateYear(SYLLABUS_SOURCE.published)}, verificato il ${fmt.dateYear(SYLLABUS_SOURCE.verifiedOn)}.`, kind: "ufficiale" }} />
-              </ul>
-            </section>
-            {lesson && (
-              <section>
-                <h2 className="mb-3 text-[15px] font-semibold text-fg">Fonti della lezione</h2>
-                <ul className="space-y-3">
-                  {lesson.sources.map((s) => <SourceItem key={s.label} s={s} />)}
-                </ul>
-              </section>
-            )}
-            {!lesson && (
-              <Notice tone="info">Le fonti della lezione saranno elencate quando la lezione ATLAS sarà pubblicata. Nel frattempo usa i manuali aperti e i corsi della scheda «Video e corsi».</Notice>
-            )}
-          </div>
-        )}
-      </div>
+      {(prev || next) && (
+        <nav aria-label="Argomenti vicini" className="mt-20 grid gap-3 border-t border-white/[0.07] pt-8 sm:grid-cols-2">
+          {prev ? (
+            <Link href={`/materie/${prev.subject.id}/${prev.topic.id}`} className="card card-hover flex min-w-0 flex-col gap-1 p-4">
+              <span className="inline-flex items-center gap-1 text-xs text-fg-subtle">
+                <ChevronLeft className="h-3.5 w-3.5" aria-hidden /> Argomento precedente
+                {prev.unit.id !== ref.unit.id && <span>, unità {prev.unit.number}</span>}
+              </span>
+              <span className="line-clamp-2 text-sm font-medium text-fg">{prev.topic.title}</span>
+            </Link>
+          ) : (
+            <span className="hidden sm:block" />
+          )}
+          {next && (
+            <Link href={`/materie/${next.subject.id}/${next.topic.id}`} className="card card-hover flex min-w-0 flex-col items-end gap-1 p-4 text-right">
+              <span className="inline-flex items-center gap-1 text-xs text-fg-subtle">
+                Argomento successivo
+                {next.unit.id !== ref.unit.id && <span>, unità {next.unit.number}</span>}
+                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              </span>
+              <span className="line-clamp-2 text-sm font-medium text-fg">{next.topic.title}</span>
+            </Link>
+          )}
+        </nav>
+      )}
     </div>
   );
 }

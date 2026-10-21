@@ -10,7 +10,7 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ topicId: string }> }): Promise<Metadata> {
   const { topicId } = await params;
   const ref = getTopicRef(topicId);
-  return { title: ref ? `${ref.topic.title} · ${ref.subject.name}` : "Argomento" };
+  return { title: ref ? `${ref.topic.title} (${ref.subject.name})` : "Argomento" };
 }
 
 export default async function Page({ params }: { params: Promise<{ subject: string; topicId: string }> }) {

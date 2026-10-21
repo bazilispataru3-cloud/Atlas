@@ -433,14 +433,20 @@ export function CoverArt({
     const h = hash(`${salt}:${seed}`);
     const r = rng(seed + motif.length * 17 + (h % 997));
     const options = premium ? GOLD : PALETTES[subject];
-    const p = options[h % options.length];
+    // The seed picks palette and framing, so the catalogue can keep neighbours apart;
+    // the hash only jitters the geometry.
+    const p = options[seed % options.length];
     // Editorial composition: the motif is enlarged and pushed off-centre (towards
-    // the top right) so it bleeds off the edge and leaves the lower left calm for
-    // the title printed over it.
-    const scale = 1.18 + r() * 0.32;
-    const dx = 90 + r() * 90;
-    const dy = -70 + r() * 36;
-    const rot = -12 + r() * 24;
+    // the right) so it bleeds off the edge and leaves the lower left calm for the
+    // title printed over it. Three framings (wide, macro close-up, quarter turn)
+    // times the subject palettes keep two covers with the same motif apart.
+    const framing = Math.floor(seed / options.length) % 3;
+    const [scale, dx, dy, rot] =
+      framing === 1
+        ? [1.95 + r() * 0.45, 150 + r() * 80, -30 + r() * 40, -20 + r() * 40]
+        : framing === 2
+          ? [1.05 + r() * 0.2, 170 + r() * 50, -25 + r() * 30, 80 + r() * 20]
+          : [1.18 + r() * 0.32, 90 + r() * 90, -70 + r() * 36, -12 + r() * 24];
     const transform = `translate(${W / 2 + dx} ${H / 2 + dy}) rotate(${rot}) scale(${scale}) translate(${-W / 2} ${-H / 2})`;
     // Motifs are pure render helpers called directly: the RNG is consumed exactly
     // once per memo pass, so server, client and Strict Mode re-renders agree.

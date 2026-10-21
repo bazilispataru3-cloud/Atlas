@@ -63,9 +63,9 @@ export function Dashboard() {
       {demo && (
         <Notice
           tone="demo"
-          className="items-center py-2"
+          className="items-center py-1.5 sm:py-2"
           action={
-            <Link href="/profilo#dati" className="inline-flex h-9 items-center rounded-control px-3 text-sm font-medium text-fg transition-colors hover:bg-white/[0.06]">
+            <Link href="/profilo#dati" className="-mr-1.5 inline-flex h-11 items-center rounded-control px-3 text-sm font-medium text-fg transition-colors hover:bg-white/[0.06] sm:h-9">
               Gestisci
             </Link>
           }

@@ -138,13 +138,13 @@ function SessionTimer({ elapsedMs, paused, idle, onToggle, className }: { elapse
       title={paused ? "Riprendi il timer" : "Metti in pausa il timer"}
       className={cx(
         "inline-flex h-11 shrink-0 items-center gap-2 rounded-control border px-3 text-sm transition-colors duration-150 lg:h-10",
-        paused ? "border-warning/30 bg-warning/[0.07] text-orange-200 hover:bg-warning/[0.12]" : "border-white/[0.09] text-fg hover:border-white/[0.16] hover:bg-white/[0.04]",
+        paused ? "border-warning/30 bg-warning/[0.07] text-warning hover:bg-warning/[0.12]" : "border-white/[0.09] text-fg hover:border-white/[0.16] hover:bg-white/[0.04]",
         className,
       )}
     >
       {paused ? <Play className="h-3.5 w-3.5 fill-current" aria-hidden /> : <Pause className="h-3.5 w-3.5" aria-hidden />}
       <span className="sr-only">{paused ? "Riprendi il timer." : "Metti in pausa il timer."} </span>
-      <span className={cx("hidden text-ui sm:inline", paused ? "text-orange-200" : "text-fg-muted")}>{paused ? (idle ? "In pausa, inattivo" : "In pausa") : "Tempo attivo"}</span>
+      <span className={cx("hidden text-ui sm:inline", paused ? "text-warning" : "text-fg-muted")}>{paused ? (idle ? "In pausa, inattivo" : "In pausa") : "Tempo attivo"}</span>
       <span className="font-medium tabular-nums">{clockLabel(elapsedMs())}</span>
     </button>
   );
@@ -677,7 +677,7 @@ export function StudySession({ topicId, mode }: { topicId: string; mode: StudyMo
                 </span>
               )}
               {done.has(step.id) && (
-                <span className="inline-flex items-center gap-1 text-green-300">
+                <span className="inline-flex items-center gap-1 text-success">
                   <Check className="h-3.5 w-3.5" aria-hidden /> Completato
                 </span>
               )}
@@ -705,7 +705,7 @@ export function StudySession({ topicId, mode }: { topicId: string; mode: StudyMo
 
           {/* Previous / next: sticky at the bottom on desktop; in the flow on phones when the exercise has its own bar */}
           <div className={cx("z-20 mt-10", stickyNav ? "hidden lg:sticky lg:bottom-0 lg:block" : "block")}>
-            <div className="flex items-center gap-3 border-t border-white/[0.07] bg-ink-950/90 py-3 backdrop-blur-xl backdrop-saturate-150">
+            <div className="flex items-center gap-3 border-t border-white/[0.07] bg-ink-950/[0.96] py-3 backdrop-blur-xl backdrop-saturate-150">
               <Button variant="ghost" disabled={stepIndex === 0} onClick={() => goTo(stepIndex - 1)}>
                 <ArrowLeft className="h-4 w-4" aria-hidden /> Indietro
               </Button>
