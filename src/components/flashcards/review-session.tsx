@@ -377,7 +377,7 @@ export function ReviewSession() {
         {!revealed ? (
           <Button ref={revealRef} variant="primary" size="lg" className="w-full" onClick={reveal} autoFocus>
             <Eye className="h-4 w-4" aria-hidden /> Mostra la risposta
-            <Kbd className="ml-1 hidden border-white/30 bg-white/10 text-white/90 [@media(hover:hover)]:inline-flex">Spazio</Kbd>
+            <Kbd className="ml-1 hidden border-white/25 bg-black/25 text-white [@media(hover:hover)]:inline-flex">Spazio</Kbd>
           </Button>
         ) : (
           <div role="group" aria-label="Quanto bene la ricordavi?">

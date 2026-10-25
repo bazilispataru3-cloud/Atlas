@@ -90,7 +90,15 @@ supabase/schema.sql   schema e Row Level Security per la sincronizzazione (predi
 - **Stack**: Next.js 16 (App Router, Turbopack), React 19, TypeScript, Tailwind CSS 4, Zustand, Zod, pdf.js (build *legacy* per compatibilità con i browser attuali), Anthropic SDK.
 - **AI**: output strutturati validati con Zod, prompt di sistema con regole di affidabilità (fonti solo dal contesto, distinzione fatti/interpretazioni, citazione delle pagine), ricerca web limitata a domini accademici, gestione di errori, rate limit e fallback.
 - **Sicurezza**: chiavi solo lato server, header di sicurezza (`next.config.ts`), PDF aperti con XFA disattivato, input delle API validati, nessun tracciamento.
-- **Accessibilità**: navigazione da tastiera, etichette ARIA, tabelle alternative ai grafici, palette delle materie verificata per il daltonismo, opzione «Riduci le animazioni» e rispetto di `prefers-reduced-motion`.
+- **Accessibilità** (riferimento WCAG 2.2 AA): navigazione da tastiera con focus sempre visibile, dialoghi con focus trap e ritorno del focus, etichette ARIA, contrasti verificati per ogni token di testo e per i bordi dei controlli, tabelle alternative e lettura da tastiera dei grafici, palette delle materie verificata per il daltonismo, opzione «Riduci le animazioni» e rispetto di `prefers-reduced-motion`.
+
+## Design system
+
+- **Token** in `src/app/globals.css` (`@theme` di Tailwind 4): superfici onice e antracite, testo `fg` / `fg-reading` / `fg-muted` / `fg-subtle` (tutti ≥ 4,5:1 su ogni superficie), **blu elettrico** per le funzioni di studio e le risorse gratuite, **oro luminoso** solo per il premium, arancione per gli avvisi, raggi per ruolo (`chip`, `control`, `card`, `panel`), easing e animazioni condivise.
+- **Tipografia**: Newsreader per i titoli, IBM Plex Sans per l’interfaccia e il testo, IBM Plex Mono solo per formule e codice; testo di lettura a 17 px, interlinea 1,7, righe di circa 68 caratteri.
+- **Elemento firma**: il «meridiano», una linea sottile in blu elettrico che segna il percorso di studio (piano di oggi, passi della sessione, avanzamento).
+- **Componenti condivisi** in `src/components/ui/`: pulsanti con stato di caricamento, card per ruolo, Tabs e Segmented con frecce da tastiera, Modal e Sheet accessibili, toast con azione, grafici SVG responsivi; shell in `src/components/layout/` con modalità focus per esami e ripassi.
+- **Immagini scientifiche** in `public/images/science/`, catalogate in `src/data/imagery.ts` con autore, licenza (pubblico dominio, CC BY, CC BY-SA) e pagina di origine; il componente `ScienceFigure` mostra sempre i crediti.
 
 ## Privacy
 
