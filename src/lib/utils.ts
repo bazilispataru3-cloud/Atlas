@@ -1,5 +1,16 @@
 import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
+import { extendTailwindMerge } from "tailwind-merge";
+
+/**
+ * tailwind-merge taught the design tokens from globals.css: without this, custom sizes
+ * like `text-ui` are mistaken for colours and dropped next to `text-fg-muted`.
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: { "font-size": [{ text: ["ui", "reading"] }] },
+    theme: { radius: ["chip", "control", "card", "panel"] },
+  },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

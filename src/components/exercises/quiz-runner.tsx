@@ -69,6 +69,8 @@ export interface QuizRunnerSnapshot {
 }
 
 interface Props {
+  /** Keep measuring the time but do not show the clock (e.g. inside a study session that has its own timer). */
+  hideTimer?: boolean;
   questions: Question[];
   variant?: Variant;
   title?: string;
@@ -116,6 +118,7 @@ export function QuizRunner({
   onSnapshot,
   onNewQuiz,
   finishedHeader,
+  hideTimer,
 }: Props) {
   // "Rifai le sbagliate" replaces the set with the missed questions, in the same order.
   const [subset, setSubset] = useState<Question[] | null>(null);
@@ -452,7 +455,7 @@ export function QuizRunner({
       )}
     </span>
   );
-  const timer = (
+  const timer = hideTimer ? null : (
     <span
       role="timer"
       aria-label={remaining !== null ? `Tempo rimasto ${timerText}` : `Tempo trascorso ${timerText}`}

@@ -4,7 +4,7 @@ import { EXAM_RULES, scoreExam } from "@/data/exam";
 import { grade, present, QUESTIONS } from "@/data/questions";
 import { analyzeFeynman } from "@/lib/feynman";
 import { computeMastery, emptyProgress, statusOf } from "@/lib/progress";
-import { addDays, dayKey, normalizeAnswer, parseNumber, shuffle, startOfDay, toDate } from "@/lib/utils";
+import { addDays, cn, dayKey, normalizeAnswer, parseNumber, shuffle, startOfDay, toDate } from "@/lib/utils";
 import type { FeynmanRubric, Question } from "@/lib/types";
 
 describe("spaced repetition (SM-2 derived)", () => {
@@ -159,5 +159,16 @@ describe("date and utility helpers", () => {
     const a = Array.from({ length: 20 }, (_, i) => i);
     expect(shuffle(a, 7)).toEqual(shuffle(a, 7));
     expect([...shuffle(a, 7)].sort((x, y) => x - y)).toEqual(a);
+  });
+});
+
+describe("class merging with the design tokens", () => {
+  it("keeps custom sizes next to text colours", () => {
+    expect(cn("text-ui text-fg-muted")).toBe("text-ui text-fg-muted");
+    expect(cn("text-reading", "text-fg")).toBe("text-reading text-fg");
+  });
+  it("still lets a later size or radius win", () => {
+    expect(cn("text-ui", "text-sm")).toBe("text-sm");
+    expect(cn("rounded-card", "rounded-lg")).toBe("rounded-lg");
   });
 });

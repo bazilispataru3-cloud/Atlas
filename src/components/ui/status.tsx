@@ -12,7 +12,7 @@ export const STATUS_TONE: Record<TopicStatus, Tone> = {
 
 /** Solid fill per status for compact strips (kept in sync with the dashboard). */
 export const STATUS_FILL: Record<TopicStatus, string> = {
-  nuovo: "bg-white/[0.07]",
+  nuovo: "bg-white/[0.14]",
   "in-corso": "bg-azure-400/70",
   "da-consolidare": "bg-warning/70",
   consolidato: "bg-success/80",

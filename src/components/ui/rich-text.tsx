@@ -74,7 +74,7 @@ export function Markdown({ source, className }: { source: string; className?: st
       flushPara();
       flushList();
       blocks.push(
-        <h4 key={`h${blocks.length}`} className="mb-1 mt-4 text-[15px] font-semibold text-fg first:mt-0">
+        <h4 key={`h${blocks.length}`} className="mb-1 mt-4 text-base font-semibold text-fg first:mt-0">
           {inline(h[2], `h${blocks.length}-`)}
         </h4>,
       );

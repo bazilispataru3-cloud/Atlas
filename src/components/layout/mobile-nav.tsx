@@ -121,7 +121,7 @@ export function MobileNav() {
                         href={item.href}
                         onClick={() => setMoreOpen(false)}
                         aria-current={active ? "page" : undefined}
-                        className={cn("flex h-12 items-center gap-3 px-4 text-[15px] transition-colors", active ? "bg-azure-500/[0.08] text-fg" : "text-fg-muted active:bg-white/[0.04]")}
+                        className={cn("flex h-12 items-center gap-3 px-4 text-base transition-colors", active ? "bg-azure-500/[0.08] text-fg" : "text-fg-muted active:bg-white/[0.04]")}
                       >
                         <Icon className={cn("h-[18px] w-[18px] shrink-0", active ? "text-azure-300" : "text-fg-subtle")} strokeWidth={1.75} aria-hidden />
                         <span className="flex-1 truncate">{item.label}</span>

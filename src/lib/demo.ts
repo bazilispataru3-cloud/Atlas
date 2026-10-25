@@ -2,11 +2,15 @@
 // a "Dati dimostrativi" badge while it is active and it can be removed at any time.
 
 import { LESSONS } from "@/data/lessons";
-import { getTopicRef } from "@/data/syllabus";
-import type { AtlasState, CardReview, FlashCard, QuizResult, StudySession } from "./store";
-import type { TopicProgress } from "./progress";
+import { allTopicRefs, getTopicRef, topicWeight } from "@/data/syllabus";
+import { EXAM_DATES } from "@/data/exam";
+import { grade, questionsFor } from "@/data/questions";
+import type { AtlasState, CardReview, FlashCard, QuizAnswerRecord, QuizResult, StudySession } from "./store";
+import { computeMastery, statusOf, type TopicProgress } from "./progress";
+import { generatePlan, type PlanConfig } from "./planner";
 import { newSrsState, review, type Rating } from "./srs";
-import { addDays, uid } from "./utils";
+import { addDays, dayKey, uid } from "./utils";
+import type { Question, SubjectId } from "./types";
 
 function rng(seed: number) {
   let s = seed;
@@ -103,14 +107,33 @@ export function buildDemoData(now = new Date()): Partial<AtlasState> {
     });
   }
 
+  // Practice quizzes carry real per-question answers (taken from the ATLAS question bank, which is
+  // not ministerial), so "Errori da rivedere" has something to show.
   const quizResults: QuizResult[] = [
-    mkResult("quiz", "Quiz · Mitocondri e respirazione", "biologia", 8, 2, 0, addDays(now, -6)),
-    mkResult("quiz", "Quiz · Tamponi", "chimica", 6, 3, 1, addDays(now, -5)),
-    mkResult("quiz", "Quiz · Idrodinamica", "fisica", 5, 4, 1, addDays(now, -3)),
+    mkPractice("Quiz · Mitocondri e respirazione", "biologia", ["bio-mitocondri"], 8, 2, 0, addDays(now, -6), rand),
+    mkPractice("Quiz · Tamponi", "chimica", ["chim-tamponi"], 6, 3, 1, addDays(now, -5), rand),
+    mkPractice("Quiz · Idrodinamica", "fisica", ["fis-idrodinamica"], 5, 4, 1, addDays(now, -3), rand),
     mkResult("simulazione", "Simulazione · Biologia", "biologia", 22, 6, 3, addDays(now, -4), true),
     mkResult("simulazione", "Simulazione · Chimica", "chimica", 17, 9, 5, addDays(now, -2), true),
     mkResult("simulazione", "Simulazione · Fisica", "fisica", 19, 7, 5, addDays(now, -1), true),
   ];
+
+  // A study plan built by the real planner from the demo progress, starting today (every day of the
+  // week available, so today always has activities); the first activity of today is already done.
+  const config: PlanConfig = {
+    startDate: dayKey(now),
+    examDate: dayKey(EXAM_DATES[0].date),
+    subjects: ["biologia", "chimica", "fisica"],
+    week: Array.from({ length: 7 }, (_, i) => ({ kind: i < 5 ? ("lezione" as const) : ("libero" as const), hours: i < 5 ? 3 : 4 })),
+    restDates: [],
+    levels: { biologia: "intermedio", chimica: "intermedio", fisica: "intermedio" },
+  };
+  const inputs = allTopicRefs().map((ref) => {
+    const p = progress[ref.topic.id];
+    return { ref, status: statusOf(p, computeMastery(p, null, now)), weight: topicWeight(ref) };
+  });
+  const generated = config.examDate > config.startDate ? generatePlan(config, inputs) : null;
+  const firstToday = generated?.items.find((it) => it.date === config.startDate);
 
   return {
     progress,
@@ -119,7 +142,36 @@ export function buildDemoData(now = new Date()): Partial<AtlasState> {
     cardReviews,
     quizResults,
     favorites: ["mit-7016", "openstax-chem2e", "yt-juM2ROSLWfw"],
+    ...(generated?.items.length
+      ? { plan: { config, items: generated.items, generatedAt: now.toISOString() }, planDone: firstToday ? [firstToday.id] : [] }
+      : {}),
   };
+}
+
+/** A practice quiz whose answers are real questions of the bank, graded with the real grader. */
+function mkPractice(title: string, subject: SubjectId, topicIds: string[], correct: number, wrong: number, blank: number, date: Date, rand: () => number): QuizResult {
+  const pool = questionsFor({ subject, topicIds, types: ["mcq", "cloze"] }).concat(questionsFor({ subject, types: ["mcq", "cloze"] }));
+  const unique = [...new Map(pool.map((q) => [q.id, q])).values()];
+  const picked = unique.slice(0, correct + wrong + blank);
+  const answers: QuizAnswerRecord[] = picked.map((q, i) => {
+    const kind = i < correct ? "ok" : i < correct + wrong ? "ko" : "blank";
+    const given = kind === "blank" ? null : kind === "ok" ? rightAnswer(q) : wrongAnswer(q);
+    return { questionId: q.id, topicId: q.topicId, given, correct: given === null ? null : grade(q, given), timeSec: 25 + Math.round(rand() * 50) };
+  });
+  const result = mkResult("quiz", title, subject, correct, wrong, blank, date);
+  const ok = answers.filter((a) => a.correct === true).length;
+  const ko = answers.filter((a) => a.correct === false).length;
+  const empty = answers.filter((a) => a.correct === null).length;
+  return { ...result, answers, correct: ok, wrong: ko, blank: empty, total: answers.length, score: ok, maxScore: answers.length };
+}
+
+function rightAnswer(q: Question): string | number {
+  if (q.type === "mcq") return q.correct;
+  return q.type === "cloze" ? q.answers[0] : "";
+}
+
+function wrongAnswer(q: Question): string | number {
+  return q.type === "mcq" ? (q.correct + 1) % q.options.length : "—";
 }
 
 function mkResult(kind: QuizResult["kind"], title: string, subject: QuizResult["subject"], correct: number, wrong: number, blank: number, date: Date, sim = false): QuizResult {

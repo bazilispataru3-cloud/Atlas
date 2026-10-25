@@ -18,7 +18,8 @@ export interface Series {
 
 const SURFACE = "#11141a";
 const GRID = "rgb(196 210 255 / 0.07)";
-const LABEL = 11;
+/** Axis and annotation labels: 12px rendered, the minimum readable size on phones. */
+const LABEL = 12;
 
 export function Legend({ series, className }: { series: Series[]; className?: string }) {
   if (series.length < 2) return null;
@@ -67,7 +68,8 @@ export function niceScale(max: number, count = 3, steps?: number[]) {
   return { max: top, ticks };
 }
 
-const textWidth = (s: string) => s.length * 6.4;
+/** Approximate rendered width of a label in IBM Plex Sans at `size` px. */
+const textWidth = (s: string, size = LABEL) => s.length * size * 0.58;
 
 function Tooltip({ x, y, width, children }: { x: number; y: number; width: number; children: ReactNode }) {
   const left = Math.min(Math.max(x, 84), width - 84);
@@ -122,7 +124,8 @@ export function StackedBars({
   const [ref, width] = useWidth();
   const totals = data.map((d) => series.reduce((s, x) => s + (d.values[x.key] ?? 0), 0));
   const empty = totals.every((t) => t <= 0);
-  const scale = niceScale(Math.max(...totals, 0), 3, tickSteps);
+  // With explicit steps (e.g. minutes) 4 ticks hug the data better than 3.
+  const scale = niceScale(Math.max(...totals, 0), tickSteps ? 4 : 3, tickSteps);
   const ticks = empty ? [0] : scale.ticks;
   const padL = empty ? 8 : Math.ceil(Math.max(...ticks.map((t) => textWidth(format(t))))) + 14;
   const pad = { l: padL, r: 6, t: 12, b: 28 };
@@ -447,7 +450,7 @@ export function LineChart({
         })}
         {markers?.map((m) => {
           const mx = sx(m.x);
-          const right = mx > width - 120;
+          const right = mx + 9 + textWidth(m.label) > width - pad.r;
           return (
             <g key={m.label}>
               <circle cx={mx} cy={sy(m.y)} r="5" fill={m.color ?? "#eceef3"} stroke={SURFACE} strokeWidth="2" />

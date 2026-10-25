@@ -163,6 +163,7 @@ interface AtlasState {
   // study tracking
   logSession: (s: Omit<StudySession, "id">) => void;
   markSectionRead: (topicId: string, sectionId: string) => void;
+  unmarkSectionRead: (topicId: string, sectionId: string) => void;
   addTopicMinutes: (topicId: string, minutes: number) => void;
   recordQuizScore: (topicId: string, score: number) => void;
   recordRecallScore: (topicId: string, score: number) => void;
@@ -269,6 +270,8 @@ export const useAtlas = create<AtlasState>()(
             sectionsRead: p.sectionsRead.includes(sectionId) ? p.sectionsRead : [...p.sectionsRead, sectionId],
           })),
         ),
+      unmarkSectionRead: (topicId, sectionId) =>
+        set((s) => (s.progress[topicId] ? touchProgress(s, topicId, (p) => ({ ...p, sectionsRead: p.sectionsRead.filter((x) => x !== sectionId) })) : {})),
       addTopicMinutes: (topicId, minutes) =>
         set((s) => touchProgress(s, topicId, (p) => ({ ...p, minutes: p.minutes + minutes }))),
       recordQuizScore: (topicId, score) =>

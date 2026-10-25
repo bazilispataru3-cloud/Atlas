@@ -36,7 +36,7 @@ export function Topbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-ink-950/75 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-ink-950/[0.96] pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150">
         <div className="mx-auto flex h-14 max-w-[1240px] items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-10">
           <Link href="/" className="shrink-0 rounded-lg lg:hidden" aria-label="ATLAS STUDY, vai alla dashboard">
             <Logo compact />

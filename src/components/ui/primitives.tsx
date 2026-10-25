@@ -283,6 +283,7 @@ export function PageHeader({
   description,
   actions,
   className,
+  descriptionClassName,
 }: {
   /** Context above the title (e.g. the parent section). Sentence case, never a shouted label. */
   eyebrow?: ReactNode;
@@ -290,13 +291,14 @@ export function PageHeader({
   description?: ReactNode;
   actions?: ReactNode;
   className?: string;
+  descriptionClassName?: string;
 }) {
   return (
     <header className={cn("flex flex-col gap-5 md:flex-row md:items-end md:justify-between", className)}>
       <div className="min-w-0 max-w-3xl">
         {eyebrow && <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-fg-subtle">{eyebrow}</div>}
         <h1 className="font-display text-[2rem] leading-[1.08] font-normal tracking-[-0.015em] text-fg sm:text-4xl">{title}</h1>
-        {description && <p className="mt-3 max-w-[62ch] text-base leading-relaxed text-fg-muted">{description}</p>}
+        {description && <p className={cn("mt-3 max-w-[62ch] text-base leading-relaxed text-fg-muted", descriptionClassName)}>{description}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
@@ -395,9 +397,9 @@ export function EmptyState({ icon, title, description, action, className }: { ic
 
 // ── Form controls ─────────────────────────────────────────────
 
-/** 16px on phones so iOS never zooms into a field; 14px from `sm`. */
+/** 16px on phones so iOS never zooms into a field; 14px from `sm`. Border ≥ 3:1 against the panel (WCAG 1.4.11). */
 const FIELD =
-  "w-full rounded-control border border-white/[0.1] bg-white/[0.03] px-3.5 text-base text-fg placeholder:text-fg-subtle transition-[border-color,background-color,box-shadow] duration-150 hover:border-white/[0.16] focus:border-azure-400/70 focus:bg-white/[0.05] focus:outline-none focus:ring-[3px] focus:ring-azure-500/25 aria-invalid:border-danger/60 disabled:opacity-50 sm:text-sm";
+  "w-full rounded-control border border-white/[0.36] bg-white/[0.03] px-3.5 text-base text-fg placeholder:text-fg-subtle transition-[border-color,background-color,box-shadow] duration-150 hover:border-white/50 focus:border-azure-400/70 focus:bg-white/[0.05] focus:outline-none focus:ring-[3px] focus:ring-azure-500/25 aria-invalid:border-danger/60 disabled:opacity-50 sm:text-sm";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
   return <input ref={ref} className={cn(FIELD, "h-10", className)} {...props} />;
@@ -427,9 +429,20 @@ export function Label({ children, htmlFor, className, id }: { children: ReactNod
   );
 }
 
-export function Switch({ checked, onChange, label, id }: { checked: boolean; onChange: (v: boolean) => void; label: string; id?: string }) {
+export function Switch({
+  checked,
+  onChange,
+  label,
+  id,
+  className,
+  ...rest
+}: { checked: boolean; onChange: (v: boolean) => void; label: string; id?: string; className?: string } & Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "onChange" | "role" | "aria-checked" | "type"
+>) {
   return (
     <button
+      {...rest}
       id={id}
       type="button"
       role="switch"
@@ -437,8 +450,9 @@ export function Switch({ checked, onChange, label, id }: { checked: boolean; onC
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-150",
-        checked ? "border-azure-400/60 bg-azure-500" : "border-white/[0.12] bg-white/[0.08] hover:bg-white/[0.12]",
+        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50",
+        checked ? "border-azure-400/60 bg-azure-500" : "border-white/[0.36] bg-white/[0.08] hover:bg-white/[0.12]",
+        className,
       )}
     >
       <span className={cn("inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]", checked ? "translate-x-[22px]" : "translate-x-[2px]")} />
@@ -472,6 +486,7 @@ export function Segmented<T extends string>({
   className,
   size = "md",
   ariaLabel,
+  wrap,
 }: {
   value: T;
   onChange: (v: T) => void;
@@ -479,6 +494,8 @@ export function Segmented<T extends string>({
   className?: string;
   size?: "sm" | "md";
   ariaLabel?: string;
+  /** Let the options wrap onto several rows instead of scrolling (many options on narrow screens). */
+  wrap?: boolean;
 }) {
   const { refs, onKeyDown } = useRovingKeys(
     options.map((o) => o.value),
@@ -487,7 +504,11 @@ export function Segmented<T extends string>({
   );
   return (
     <div
-      className={cn("no-scrollbar inline-flex max-w-full gap-0.5 overflow-x-auto rounded-control border border-white/[0.08] bg-white/[0.03] p-[3px]", className)}
+      className={cn(
+        "inline-flex max-w-full gap-0.5 rounded-control border border-white/[0.12] bg-white/[0.03] p-[3px]",
+        wrap ? "flex-wrap" : "no-scrollbar overflow-x-auto",
+        className,
+      )}
       role="radiogroup"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}

@@ -117,6 +117,7 @@ export function OfficialBox({ ref }: { ref: TopicRef }) {
 function ReadSection({ topicId, id, title, children }: { topicId: string; id: string; title: string; children: ReactNode }) {
   const read = useAtlas((s) => s.progress[topicId]?.sectionsRead.includes(id) ?? false);
   const mark = useAtlas((s) => s.markSectionRead);
+  const unmark = useAtlas((s) => s.unmarkSectionRead);
   return (
     <section id={sectionAnchor(id)} className="scroll-mt-24" aria-labelledby={`${sectionAnchor(id)}-h`}>
       <h3 id={`${sectionAnchor(id)}-h`} tabIndex={-1} className="scroll-mt-24 text-xl font-semibold leading-snug tracking-[-0.01em] text-fg [text-wrap:balance]">
@@ -125,10 +126,9 @@ function ReadSection({ topicId, id, title, children }: { topicId: string; id: st
       <div className="mt-3">{children}</div>
       <button
         type="button"
-        onClick={() => {
-          if (!read) mark(topicId, id);
-        }}
+        onClick={() => (read ? unmark(topicId, id) : mark(topicId, id))}
         aria-pressed={read}
+        title={read ? "Tocca di nuovo per segnarla come da leggere" : undefined}
         className={cx(
           "mt-4 inline-flex min-h-11 items-center gap-2 rounded-control border px-3.5 text-ui font-medium transition-colors duration-150 sm:min-h-9",
           read ? "border-success/25 bg-success/[0.06] text-success" : "border-white/[0.1] text-fg-muted hover:border-white/[0.18] hover:bg-white/[0.04] hover:text-fg",
@@ -248,7 +248,7 @@ function SessionQuiz({ ctx, questions, title, variant = "practice", stepId }: { 
   return (
     <div className="space-y-3">
       <p className="max-w-[68ch] text-ui text-fg-muted">Quesiti originali ATLAS nel formato d’esame (5 opzioni o completamento). Non sono quesiti ministeriali.</p>
-      <QuizRunner questions={questions} variant={variant} title={title} onFinish={(o) => ctx.onQuiz(o, title, stepId)} />
+      <QuizRunner questions={questions} variant={variant} title={title} hideTimer onFinish={(o) => ctx.onQuiz(o, title, stepId)} />
     </div>
   );
 }
@@ -595,7 +595,7 @@ export function buildSteps(ctx: StepCtx): SessionStep[] {
     interleaving: { id: "interleaving", title: "Interleaving: pratica mista", technique: "Interleaving", icon: <Shuffle className={I} />, check: mixed.length > 0, ownDock: mixed.length > 0, render: () => (
       <div className="space-y-4">
         <p className="max-w-[68ch] text-base leading-relaxed text-fg-reading">Domande dell’argomento alternate a domande di altri argomenti: prima di rispondere chiediti «che tipo di problema è?».</p>
-        <QuizRunner questions={mixed} title="Pratica mista" onFinish={(o) => ctx.onQuiz(o, "Pratica mista (interleaving)", "interleaving")} />
+        <QuizRunner questions={mixed} title="Pratica mista" hideTimer onFinish={(o) => ctx.onQuiz(o, "Pratica mista (interleaving)", "interleaving")} />
       </div>
     ) },
     orale: { id: "orale", title: "Simulazione orale", technique: "Interrogazione", icon: <Mic className={I} />, check: true, render: () => <OralExam topicId={ref.topic.id} onComplete={(s) => ctx.onPractice?.("orale", "Simulazione orale", s)} /> },
