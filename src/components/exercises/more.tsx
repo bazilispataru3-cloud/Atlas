@@ -544,6 +544,8 @@ export function ForgettingCurveSim() {
           ariaLabel="Piano di ripasso"
           value={plan}
           onChange={choosePreset}
+          // Four options do not fit one row on phones: 2 × 2 there, one row from sm.
+          className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto [&>button]:h-10 sm:[&>button]:h-8"
           options={[
             { value: "none", label: "Nessuno" },
             { value: "massed", label: "Un ripasso" },

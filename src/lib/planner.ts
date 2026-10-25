@@ -301,7 +301,7 @@ export function generatePlan(config: PlanConfig, topics: PlanTopicInput[]): Plan
         detail:
           task.kind === "recupero"
             ? "Argomento già affrontato ma non consolidato: riprendi le lacune emerse dai quiz, poi verifica."
-            : `Unità ${ref.unit.number} · ${ref.chapter.title}. Chiudi con 5 domande di verifica: la lettura da sola non conta come completamento.`,
+            : `Unità ${ref.unit.number}, ${ref.chapter.title}. Chiudi con 5 domande di verifica: la lettura da sola non conta come completamento.`,
       });
       cap = Math.max(0, cap - minutes);
       if (partial) {

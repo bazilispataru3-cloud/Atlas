@@ -198,7 +198,8 @@ function Guide({ t, onFinish, firstStepRef }: { t: Technique; onFinish: () => vo
                 </h3>
                 {open && (
                   <div id={`passo-${i}`} className="animate-fade-in pb-6 pl-[3.375rem] pr-1 pt-1">
-                    <div className="mb-4 overflow-hidden rounded-card border border-white/[0.07] bg-ink-900/70 lg:hidden">
+                    {/* Phones and tablets: the drawing spans the whole column (over the rail) so its labels stay ≥ 12px. */}
+                    <div className="relative z-10 mb-4 -ml-[3.375rem] overflow-hidden rounded-card border border-white/[0.07] bg-ink-900 sm:ml-0 sm:max-w-md lg:hidden">
                       <TechniqueArt icon={t.icon} step={i} className="aspect-[16/9] w-full" />
                     </div>
                     <p className="max-w-[60ch] text-reading leading-[1.7] text-fg-reading">

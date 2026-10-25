@@ -61,7 +61,7 @@ function useTechniqueStatus(): Record<string, string> {
   if (lastFeynman) out.feynman = `Ultima spiegazione: ${lastFeynman.score}/100`;
   const loci = Math.max(0, ...palaces.map((p) => p.placements.length));
   if (loci > 0) out["palazzo-memoria"] = `Il tuo palazzo ha ${pluralize(loci, "luogo", "luoghi")}`;
-  const notes = Object.keys(cornell).length;
+  const notes = Object.values(cornell).filter((c) => c.cues.trim() || c.notes.trim() || c.summary.trim()).length;
   if (notes > 0) out.cornell = `Note Cornell su ${pluralize(notes, "argomento", "argomenti")}`;
   if (cards.length > 0) out["spaced-repetition"] = due.length ? `${pluralize(due.length, "flashcard", "flashcard")} da ripassare oggi` : "Nessuna flashcard in scadenza oggi";
   return out;

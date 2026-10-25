@@ -273,7 +273,7 @@ export function MemoryPalace({ topicId: initialTopic }: { topicId?: string }) {
   const [confirmFill, setConfirmFill] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const conceptRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLTextAreaElement>(null);
 
   // Walk state
   const ordered = useMemo(() => LOCI.filter((l) => current.placements.some((p) => p.locusId === l.id)), [current.placements]);
@@ -415,7 +415,8 @@ export function MemoryPalace({ topicId: initialTopic }: { topicId?: string }) {
             { value: "walk", label: <span className="flex items-center gap-1.5"><Footprints className="h-3.5 w-3.5" aria-hidden /> Percorri</span> },
           ]}
         />
-        {palaces.length > 0 && (
+        {/* The switcher only when there is something to switch to. */}
+        {(palaces.length > 1 || (palaces.length === 1 && !palace)) && (
           <Select
             value={palaceId ?? ""}
             onChange={(e) => {
@@ -475,12 +476,24 @@ export function MemoryPalace({ topicId: initialTopic }: { topicId?: string }) {
               <label htmlFor={`${ids}-name`} className="sr-only">
                 Nome del palazzo
               </label>
-              <input
+              {/* A one-line field that grows with the name (long lesson titles wrap instead of being cut). */}
+              <textarea
                 ref={nameRef}
                 id={`${ids}-name`}
+                rows={1}
                 value={current.name}
-                onChange={(e) => (palace ? persist({ ...current, name: e.target.value }) : setDraft({ ...current, name: e.target.value }))}
-                className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 -mx-2 text-xl font-semibold tracking-[-0.01em] text-fg transition-colors hover:border-white/[0.12] focus:border-azure-400/70 focus:outline-none focus:ring-[3px] focus:ring-azure-500/25"
+                onChange={(e) => {
+                  const name = e.target.value.replace(/\s*\n\s*/g, " ");
+                  if (palace) persist({ ...current, name });
+                  else setDraft({ ...current, name });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="field-sizing-content -mx-2 block w-[calc(100%+1rem)] resize-none overflow-hidden rounded-lg border border-transparent bg-transparent px-2 py-1 text-xl font-semibold leading-snug tracking-[-0.01em] text-fg transition-colors hover:border-white/[0.12] focus:border-azure-400/70 focus:outline-none focus:ring-[3px] focus:ring-azure-500/25"
               />
               <p className="mt-1 text-sm text-fg-muted">
                 {pluralize(current.placements.length, "luogo occupato", "luoghi occupati")} su {LOCI.length}

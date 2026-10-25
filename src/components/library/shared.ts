@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { FileAudio, FileText, FileType2, NotebookPen, type LucideIcon } from "lucide-react";
 import type { LibraryDoc } from "@/lib/store";
 import type { DocMeta, HighlightColor } from "@/lib/library";
@@ -87,4 +87,17 @@ export function useLocalPref<T extends string>(key: string, fallback: T, allowed
     [key],
   );
   return [value, update, loaded];
+}
+
+/** Live result of a CSS media query (false while rendering on the server). */
+export function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (cb) => {
+      const m = window.matchMedia(query);
+      m.addEventListener("change", cb);
+      return () => m.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
 }

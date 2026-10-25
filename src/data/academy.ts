@@ -231,7 +231,7 @@ export const TECHNIQUES: Technique[] = [
     ],
     example: {
       title: "Esempio universitario: fluidi",
-      text: "«Un vaso si restringe: la velocità?» (continuità) · «La pressione nel tratto stretto?» (Bernoulli) · «Il raggio si dimezza: la portata a parità di Δp?» (Poiseuille) · «Pressione a 10 m di profondità?» (Stevino).",
+      text: "«Un vaso si restringe: la velocità?» (continuità); «La pressione nel tratto stretto?» (Bernoulli); «Il raggio si dimezza: la portata a parità di Δp?» (Poiseuille); «Pressione a 10 m di profondità?» (Stevino).",
     },
     exercise: "interleaving",
     whenToUse: ["Fisica e chimica: esercizi numerici", "Argomenti facilmente confondibili", "Preparazione alle simulazioni"],

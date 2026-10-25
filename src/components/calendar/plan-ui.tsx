@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import {
@@ -44,6 +44,8 @@ export const KIND_ICON: Record<PlanItemKind, ComponentType<{ className?: string;
 };
 
 export const kindTone = (kind: PlanItemKind) => KIND_META[kind].tone as Tone;
+/** Breaks are part of the plan but are not shown as blocks in the grids. */
+export const visibleItems = (list: PlanItem[]) => list.filter((i) => i.kind !== "pausa");
 export const isCheckable = (it: Pick<PlanItem, "kind">) => it.kind !== "riposo" && it.kind !== "esame" && it.kind !== "pausa";
 
 /** The families shown in the legend, in reading order, with one representative kind each. */
@@ -136,6 +138,18 @@ export function useFocusTitle(tick: number, reduceMotion: boolean) {
     return () => window.cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick]);
+}
+
+/**
+ * Field label at the UI size. A local copy of the shared `Label` because
+ * `cn` (tailwind-merge) drops the custom `text-ui` size next to a text colour.
+ */
+export function FieldLabel({ htmlFor, id, children, className }: { htmlFor?: string; id?: string; children: ReactNode; className?: string }) {
+  return (
+    <label id={id} htmlFor={htmlFor} className={cx("mb-1.5 block text-ui font-medium text-fg-muted", className)}>
+      {children}
+    </label>
+  );
 }
 
 function CheckButton({ done, title, onToggle, size = "md" }: { done: boolean; title: string; onToggle: () => void; size?: "sm" | "md" }) {
@@ -234,33 +248,37 @@ export function ItemRow({
   );
 }
 
-/** A compact block inside a week column. */
+/** A compact block inside a week column: kind on top, title, then subject, minutes and the check. */
 export function WeekItem({ it, done, onToggle }: { it: PlanItem; done: boolean; onToggle: () => void }) {
   const Icon = KIND_ICON[it.kind];
   const t = TONE[kindTone(it.kind)];
   const title = itemTitle(it);
   return (
     <li
-      className={cx("rounded-lg border border-white/[0.06] py-1.5 pl-2.5 pr-1.5", done ? "bg-transparent" : "bg-white/[0.025]")}
+      className={cx("rounded-lg border border-white/[0.06] py-1.5 pl-2.5 pr-1", done ? "bg-transparent" : "bg-white/[0.025]")}
       style={{ boxShadow: `inset 2px 0 0 ${t.hex}` }}
     >
-      <div className="flex items-start gap-1">
-        <span className="flex min-w-0 flex-1 items-center gap-1 pt-0.5 text-xs text-fg-muted">
-          <Icon className={cx("h-3 w-3 shrink-0", t.text)} aria-hidden />
-          <span className="truncate">{KIND_META[it.kind].label}</span>
-        </span>
-        {isCheckable(it) && <CheckButton size="sm" done={done} title={title} onToggle={onToggle} />}
-      </div>
-      <p className={cx("mt-1 line-clamp-3 text-xs leading-snug [overflow-wrap:anywhere]", done ? "text-fg-muted line-through" : "text-fg")} title={title}>
+      <span className="flex min-w-0 items-center gap-1 pr-1 text-xs text-fg-muted">
+        <Icon className={cx("h-3 w-3 shrink-0", t.text)} aria-hidden />
+        <span className="truncate">{KIND_META[it.kind].label}</span>
+      </span>
+      <p
+        lang="it"
+        className={cx("mt-1 line-clamp-3 pr-1 text-xs leading-snug break-words [hyphens:auto]", done ? "text-fg-muted line-through" : "text-fg")}
+        title={title}
+      >
         {title}
       </p>
-      {(it.subject || it.minutes > 0) && (
-        <div className="mt-1 flex items-center gap-1.5 text-xs text-fg-subtle">
-          {it.subject && <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", TONE[SUBJECT_TONE[it.subject]].dot)} aria-hidden />}
-          {it.subject && <span className="sr-only">{SUBJECT_NAME[it.subject]}, </span>}
-          {it.minutes > 0 && <span className="tabular-nums">{fmt.minutes(it.minutes)}</span>}
-        </div>
-      )}
+      <div className="mt-0.5 flex min-h-7 items-center gap-1.5 text-xs text-fg-subtle">
+        {it.subject && <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", TONE[SUBJECT_TONE[it.subject]].dot)} aria-hidden />}
+        {it.subject && <span className="sr-only">{SUBJECT_NAME[it.subject]}, </span>}
+        {it.minutes > 0 && <span className="min-w-0 truncate tabular-nums">{fmt.minutes(it.minutes)}</span>}
+        {isCheckable(it) && (
+          <span className="ml-auto">
+            <CheckButton size="sm" done={done} title={title} onToggle={onToggle} />
+          </span>
+        )}
+      </div>
     </li>
   );
 }

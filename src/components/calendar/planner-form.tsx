@@ -6,12 +6,12 @@ import { CalendarPlus, Plus, X } from "lucide-react";
 import type { SubjectId } from "@/lib/types";
 import { SUBJECTS, topicWeight } from "@/data/syllabus";
 import { EXAM_DATES } from "@/data/exam";
-import { Button, Card, Input, Label, Notice, ProgressBar, Segmented, Select, Stat } from "@/components/ui/primitives";
+import { Button, Card, Input, Notice, ProgressBar, Segmented, Select } from "@/components/ui/primitives";
 import { SUBJECT_TONE, TONE } from "@/components/ui/tone";
 import { useTopicStates } from "@/lib/hooks";
 import { generatePlan, type DayKind, type PlanConfig, type PlanResult } from "@/lib/planner";
 import { capFirst, dayKey, daysBetween, fmt, pluralize } from "@/lib/utils";
-import { SUBJECT_NAME } from "./plan-ui";
+import { FieldLabel } from "./plan-ui";
 
 const cx = clsx;
 
@@ -119,7 +119,7 @@ export function PlannerForm({
         <Fieldset legend="Esame" first>
           <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div>
-              <Label htmlFor="pl-exam">Appello</Label>
+              <FieldLabel htmlFor="pl-exam">Appello</FieldLabel>
               <Select
                 id="pl-exam"
                 value={examPreset}
@@ -137,11 +137,11 @@ export function PlannerForm({
               </Select>
             </div>
             <div>
-              <Label htmlFor="pl-start">Inizio del piano</Label>
+              <FieldLabel htmlFor="pl-start">Inizio del piano</FieldLabel>
               <Input id="pl-start" type="date" value={c.startDate} onChange={(e) => set({ startDate: e.target.value })} aria-invalid={invalidDates || undefined} />
             </div>
             <div>
-              <Label htmlFor="pl-end">Data dell’esame</Label>
+              <FieldLabel htmlFor="pl-end">Data dell’esame</FieldLabel>
               <Input id="pl-end" type="date" value={c.examDate} onChange={(e) => set({ examDate: e.target.value })} aria-invalid={invalidDates || undefined} aria-describedby={invalidDates ? "pl-date-error" : undefined} />
             </div>
           </div>
@@ -150,7 +150,7 @@ export function PlannerForm({
               La data dell’esame deve venire dopo l’inizio del piano.
             </p>
           ) : (
-            <p className="mt-2 text-ui text-fg-subtle">{pluralize(days, "giorno", "giorni")} di preparazione, esame compreso escluso il giorno stesso.</p>
+            <p className="mt-2 text-ui text-fg-subtle">{pluralize(days, "giorno", "giorni")} di preparazione, escluso il giorno dell’esame.</p>
           )}
         </Fieldset>
 
@@ -168,7 +168,7 @@ export function PlannerForm({
                   value={d.kind}
                   onChange={(k) => setDay(i, { kind: k, hours: k === "riposo" ? 0 : d.hours || 2 })}
                   options={KIND_OPTIONS}
-                  className="order-3 col-span-2 grid w-full grid-cols-4 sm:order-none sm:col-span-1 [&>button]:h-9 sm:[&>button]:h-8 [&>button]:px-1"
+                  className="order-3 col-span-2 grid w-full grid-cols-4 sm:order-none sm:col-span-1 [&>button]:h-9 [&>button]:px-1 [&>button]:text-ui sm:[&>button]:h-8"
                 />
                 <div className="relative order-2 w-[5.5rem] sm:order-none">
                   <Input
@@ -213,7 +213,7 @@ export function PlannerForm({
                   </label>
                   <div className="grid grid-cols-2 gap-3 sm:contents">
                     <div>
-                      <Label htmlFor={`pl-level-${s.id}`}>Livello</Label>
+                      <FieldLabel htmlFor={`pl-level-${s.id}`}>Livello</FieldLabel>
                       <Select
                         id={`pl-level-${s.id}`}
                         value={c.levels[s.id]}
@@ -228,9 +228,9 @@ export function PlannerForm({
                       </Select>
                     </div>
                     <div>
-                      <Label htmlFor={`pl-pages-${s.id}`}>
+                      <FieldLabel htmlFor={`pl-pages-${s.id}`}>
                         Pagine <span className="font-normal text-fg-subtle">(facoltativo)</span>
-                      </Label>
+                      </FieldLabel>
                       <Input
                         id={`pl-pages-${s.id}`}
                         type="number"
@@ -259,7 +259,7 @@ export function PlannerForm({
         <Fieldset legend="Giorni senza studio" hint="Feste, viaggi, impegni: in quei giorni il piano non mette attività e le sposta al giorno seguente.">
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-0 flex-1 sm:max-w-[220px] sm:flex-none">
-              <Label htmlFor="pl-rest">Giorno da aggiungere</Label>
+              <FieldLabel htmlFor="pl-rest">Giorno da aggiungere</FieldLabel>
               <Input id="pl-rest" type="date" value={restInput} min={c.startDate} max={c.examDate} onChange={(e) => setRestInput(e.target.value)} />
             </div>
             <Button
@@ -336,7 +336,7 @@ export function PlannerForm({
                   <p>{preview.warnings.join(" ")}</p>
                   {unscheduled > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button size="sm" variant="secondary" onClick={addHour}>
+                      <Button size="sm" variant="primary" onClick={addHour}>
                         <Plus className="h-3.5 w-3.5" aria-hidden /> 1 h in più al giorno
                       </Button>
                       {later && (

@@ -33,7 +33,6 @@ export function CornellEditor({ topicId, seedCues }: { topicId: string; seedCues
   const [cues, setCues] = useState(saved?.cues ?? "");
   const [notes, setNotes] = useState(saved?.notes ?? "");
   const [summary, setSummary] = useState(saved?.summary ?? "");
-  const first = useRef(true);
   const ids = useId();
 
   // Guided review
@@ -44,14 +43,12 @@ export function CornellEditor({ topicId, seedCues }: { topicId: string; seedCues
   const cuesRef = useRef<HTMLTextAreaElement>(null);
   const reviewBtnRef = useRef<HTMLButtonElement>(null);
 
+  // Autosave only real edits (an unchanged sheet is never written, so opening the editor creates nothing).
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return;
-    }
+    if (cues === (saved?.cues ?? "") && notes === (saved?.notes ?? "") && summary === (saved?.summary ?? "")) return;
     const t = setTimeout(() => save(topicId, { cues, notes, summary }), 800);
     return () => clearTimeout(t);
-  }, [cues, notes, summary, topicId, save]);
+  }, [cues, notes, summary, topicId, save, saved]);
 
   const questions = cueList(cues);
   const canReview = questions.length > 0 && notes.trim().length > 0;
@@ -197,7 +194,7 @@ export function CornellEditor({ topicId, seedCues }: { topicId: string; seedCues
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <p className="max-w-[60ch] text-base leading-relaxed text-fg-muted">
-          A destra gli appunti, a sinistra le domande guida (una per blocco di appunti), in basso la sintesi. Poi ripassa: ATLAS copre gli appunti e ti fa una domanda alla volta.
+          Scrivi gli appunti, poi una domanda guida per ogni blocco e, in fondo, la sintesi con parole tue. Poi ripassa: ATLAS copre gli appunti e ti fa una domanda alla volta.
         </p>
         <div className="flex items-center gap-2">
           <span className="text-xs text-fg-subtle" aria-live="polite">
@@ -218,7 +215,8 @@ export function CornellEditor({ topicId, seedCues }: { topicId: string; seedCues
 
       <div className="overflow-hidden rounded-card border border-white/[0.1] bg-ink-950/60">
         <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-          <div className="border-b border-azure-400/25 md:border-b-0 md:border-r">
+          {/* Phones: notes first (they are written first), cues below; from md the classic sheet, cues on the left. */}
+          <div className="border-azure-400/25 md:border-r">
             <label htmlFor={`${ids}-cues`} className="block px-4 pt-3 text-ui font-medium text-fg-muted">
               Domande guida
             </label>
@@ -247,7 +245,7 @@ export function CornellEditor({ topicId, seedCues }: { topicId: string; seedCues
               </div>
             )}
           </div>
-          <div>
+          <div className="order-first border-b border-azure-400/25 md:order-none md:border-b-0">
             <label htmlFor={`${ids}-notes`} className="block px-4 pt-3 text-ui font-medium text-fg-muted">
               Appunti
             </label>

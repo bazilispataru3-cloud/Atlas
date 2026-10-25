@@ -81,9 +81,66 @@ function wrap(text: string, maxChars: number): string[] {
   return lines.flatMap((l) => (l.length <= maxChars + 2 ? [l] : l.match(new RegExp(`.{1,${maxChars}}`, "g")) ?? [l]));
 }
 
-const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+interface Pt {
+  x: number;
+  y: number;
+}
 
-function computeLayout(map: ConceptMap, W: number) {
+/** Area shared by two rectangles (0 when they do not touch). */
+const overlapArea = (a: Rect, b: Rect) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/** Point at `t` on a cubic Bézier curve. */
+function cubic(p0: Pt, p1: Pt, p2: Pt, p3: Pt, t: number): Pt {
+  const u = 1 - t;
+  const k = [u * u * u, 3 * u * u * t, 3 * u * t * t, t * t * t];
+  return { x: k[0] * p0.x + k[1] * p1.x + k[2] * p2.x + k[3] * p3.x, y: k[0] * p0.y + k[1] * p1.y + k[2] * p2.y + k[3] * p3.y };
+}
+
+function permutations<T>(xs: T[]): T[][] {
+  if (xs.length <= 1) return [xs];
+  return xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((rest) => [x, ...rest]));
+}
+
+/**
+ * Reorders the nodes inside each row (rows themselves keep their order) so that
+ * linked nodes in the same row sit side by side and links between rows run as
+ * straight as possible: fewer crossings, shorter lines, more room for labels.
+ */
+function orderRows(rows: string[][], edges: ConceptMap["edges"]) {
+  const rowOf = new Map<string, number>();
+  rows.forEach((ids, r) => ids.forEach((id) => rowOf.set(id, r)));
+  const frac = (id: string) => {
+    const ids = rows[rowOf.get(id)!];
+    return (ids.indexOf(id) + 0.5) / ids.length;
+  };
+  for (let pass = 0; pass < 2; pass++) {
+    rows.forEach((ids, r) => {
+      if (ids.length < 2 || ids.length > 5) return;
+      let best = ids;
+      let bestCost = Infinity;
+      for (const perm of permutations(ids)) {
+        const pos = (id: string) => (perm.indexOf(id) + 0.5) / perm.length;
+        let cost = 0;
+        for (const e of edges) {
+          const ra = rowOf.get(e.from);
+          const rb = rowOf.get(e.to);
+          if (ra === undefined || rb === undefined || e.from === e.to) continue;
+          // Same row: side by side, and left to right (reading order) unless that costs a lot elsewhere.
+          if (ra === r && rb === r) cost += (Math.abs(perm.indexOf(e.from) - perm.indexOf(e.to)) > 1 ? 10 : 0) + (perm.indexOf(e.from) > perm.indexOf(e.to) ? 4 : 0);
+          else if (ra === r) cost += Math.abs(pos(e.from) - frac(e.to)) * 3;
+          else if (rb === r) cost += Math.abs(pos(e.to) - frac(e.from)) * 3;
+        }
+        if (cost < bestCost - 1e-9) {
+          best = perm;
+          bestCost = cost;
+        }
+      }
+      rows[r] = best;
+    });
+  }
+}
+
+function computeLayout(map: ConceptMap, W: number, prefixes?: string[]) {
   const groups = new Map<number, string[]>();
   for (const n of map.nodes) {
     const g = n.group ?? 0;
@@ -95,6 +152,7 @@ function computeLayout(map: ConceptMap, W: number) {
     const ids = groups.get(g)!;
     for (let i = 0; i < ids.length; i += cap) rows.push(ids.slice(i, i + cap));
   }
+  orderRows(rows, map.edges);
   const label = new Map(map.nodes.map((n) => [n.id, n.label]));
   const boxes = new Map<string, NodeBox>();
   const gaps: number[] = [];
@@ -123,10 +181,12 @@ function computeLayout(map: ConceptMap, W: number) {
       const b = boxes.get(e.to);
       if (!a || !b || a === b) return null;
       let d: string;
-      let lx: number;
-      let ly: number;
+      let at: (t: number) => Pt;
       let maxChars = 20;
-      let shifts = [0, -20, 20, -40, 40];
+      // Fallback vertical nudges around the middle of the edge.
+      let shifts = [-20, 20, -40, 40];
+      // Positions along the edge tried first, so a label always sits on its own line.
+      let ts = [0.5, 0.4, 0.6, 0.3, 0.7, 0.22, 0.78];
       if (a.row === b.row) {
         const cy = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
         if (Math.abs(a.col - b.col) === 1) {
@@ -134,47 +194,52 @@ function computeLayout(map: ConceptMap, W: number) {
           const x1 = rightward ? a.x + a.w : a.x;
           const x2 = rightward ? b.x : b.x + b.w;
           d = `M${x1},${cy} L${x2 + (rightward ? -2 : 2)},${cy}`;
-          lx = (x1 + x2) / 2;
-          ly = cy;
+          at = (t) => ({ x: x1 + (x2 - x1) * t, y: cy });
           maxChars = Math.max(8, Math.floor((gaps[a.row] - 14) / EDGE_CHAR));
-          shifts = [0, -24, 24];
+          shifts = [-24, 24];
+          ts = [0.5];
         } else {
           const x1 = a.x + a.w / 2;
           const x2 = b.x + b.w / 2;
           const bottom = Math.max(a.y + a.h, b.y + b.h);
-          d = `M${x1},${a.y + a.h} C${x1},${bottom + 52} ${x2},${bottom + 52} ${x2},${b.y + b.h + 2}`;
-          lx = (x1 + x2) / 2;
-          ly = bottom + 39;
+          const p0 = { x: x1, y: a.y + a.h };
+          const p3 = { x: x2, y: b.y + b.h + 2 };
+          d = `M${p0.x},${p0.y} C${x1},${bottom + 52} ${x2},${bottom + 52} ${p3.x},${p3.y}`;
+          at = (t) => cubic(p0, { x: x1, y: bottom + 52 }, { x: x2, y: bottom + 52 }, p3, t);
           maxChars = 24;
-          shifts = [0, 18, -18, 36];
+          shifts = [18, -18, 36];
         }
       } else {
         const down = a.row < b.row;
-        const x1 = a.x + a.w / 2;
-        const y1 = down ? a.y + a.h : a.y;
-        const x2 = b.x + b.w / 2;
-        const y2 = down ? b.y - 2 : b.y + b.h + 2;
-        const my = (y1 + y2) / 2;
-        d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`;
-        lx = (x1 + x2) / 2;
-        ly = my;
+        const p0 = { x: a.x + a.w / 2, y: down ? a.y + a.h : a.y };
+        const p3 = { x: b.x + b.w / 2, y: down ? b.y - 2 : b.y + b.h + 2 };
+        const my = (p0.y + p3.y) / 2;
+        d = `M${p0.x},${p0.y} C${p0.x},${my} ${p3.x},${my} ${p3.x},${p3.y}`;
+        at = (t) => cubic(p0, { x: p0.x, y: my }, { x: p3.x, y: my }, p3, t);
       }
-      return { e, i, d, lx, ly, maxChars, shifts };
+      return { e, i, d, at, maxChars, shifts, ts };
     })
     .filter((x): x is NonNullable<typeof x> => Boolean(x));
 
+  // Labels: the first free spot along the edge, then small nudges; if every spot
+  // is taken, the one that overlaps least. The status prefix counts in the width.
   const labels = edges.map((g) => {
-    const lines = wrap(g.e.label, g.maxChars);
+    const lines = wrap(`${prefixes?.[g.i] ?? ""}${g.e.label}`, g.maxChars);
     const w = Math.max(...lines.map((l) => l.length)) * EDGE_CHAR + 10;
     const h = lines.length * EDGE_LH + 4;
-    let best = { x: g.lx, y: g.ly };
-    for (const s of g.shifts) {
-      const vertical = g.shifts.length > 3;
-      const cx = Math.min(W - w / 2 - 2, Math.max(w / 2 + 2, vertical ? g.lx : g.lx));
-      const cy = g.ly + s;
-      const r = { x: cx - w / 2, y: cy - h / 2, w, h };
-      best = { x: cx, y: cy };
-      if (!placed.some((p) => overlaps(p, r))) break;
+    const mid = g.at(0.5);
+    const candidates = [...g.ts.map((t) => g.at(t)), ...g.shifts.map((s) => ({ x: mid.x, y: mid.y + s }))];
+    let best = { x: mid.x, y: mid.y };
+    let bestCost = Infinity;
+    for (const c of candidates) {
+      const cx = Math.min(W - w / 2 - 2, Math.max(w / 2 + 2, c.x));
+      const r = { x: cx - w / 2, y: c.y - h / 2, w, h };
+      const cost = placed.reduce((sum, p) => sum + overlapArea(p, r), 0);
+      if (cost < bestCost) {
+        best = { x: cx, y: c.y };
+        bestCost = cost;
+      }
+      if (cost === 0) break;
     }
     const rect = { x: best.x - w / 2, y: best.y - h / 2, w, h };
     placed.push(rect);
@@ -238,7 +303,10 @@ function RelationList({ map, statuses, className }: { map: ConceptMap; statuses?
 export function ConceptMapView({ map, edgeStatus, label, className }: { map: ConceptMap; edgeStatus?: EdgeStatus[]; label?: string; className?: string }) {
   const [ref, width] = useWidth();
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
-  const layout = useMemo(() => (width && width >= NARROW ? computeLayout(map, width) : null), [map, width]);
+  const layout = useMemo(
+    () => (width && width >= NARROW ? computeLayout(map, width, edgeStatus?.map((st) => EDGE_STYLE[st].prefix)) : null),
+    [map, width, edgeStatus],
+  );
   const summary = `${label ?? "Mappa concettuale"}: ${map.nodes.length} concetti, ${map.edges.length} relazioni`;
   const markers: [string, string][] = [
     ["muted", "rgba(196,210,255,0.55)"],
@@ -282,8 +350,7 @@ export function ConceptMapView({ map, edgeStatus, label, className }: { map: Con
             ))}
             {layout.edges.map((g, k) => {
               const lab = layout.labels[k];
-              const st = EDGE_STYLE[edgeStatus?.[g.i] ?? "default"];
-              const lines = st.prefix ? [st.prefix + lab.lines[0], ...lab.lines.slice(1)] : lab.lines;
+              const lines = lab.lines;
               return (
                 <text
                   key={g.i}
