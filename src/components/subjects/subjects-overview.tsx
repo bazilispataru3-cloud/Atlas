@@ -5,6 +5,8 @@ import { ChevronRight, ExternalLink, Play } from "lucide-react";
 import { SUBJECTS, SYLLABUS_SOURCE } from "@/data/syllabus";
 import { hasLesson } from "@/data/lessons";
 import { Button, Meridian, PageHeader, ProgressBar, Skeleton } from "@/components/ui/primitives";
+import { ScienceFigure } from "@/components/imagery/science-figure";
+import { imageForSubject } from "@/data/imagery";
 import { SUBJECT_TONE, TONE } from "@/components/ui/tone";
 import { StatusBadge } from "@/components/ui/status";
 import { useHydrated, useTopicStates, type TopicState } from "@/lib/hooks";
@@ -100,13 +102,16 @@ export function SubjectsOverview() {
             const lessons = list.filter((x) => hasLesson(x.ref.topic.id)).length;
             const subjNext = perSubject.find((p) => p.subject.id === s.id)?.next;
             const m = mastery.bySubject[s.id];
+            const hero = imageForSubject(s.id);
             const touched = STATUS_ORDER.filter((st) => st !== "nuovo")
               .map((st) => ({ st, n: list.filter((x) => x.status === st).length }))
               .filter((x) => x.n > 0);
             return (
               <li key={s.id}>
                 <article aria-labelledby={`materia-${s.id}`} className="card grid overflow-hidden lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)]">
-                  <div className="flex flex-col p-5 sm:p-6 lg:border-r lg:border-white/[0.07]">
+                  <div className="flex flex-col lg:border-r lg:border-white/[0.07]">
+                    {hero && <ScienceFigure image={hero} aspect="21/9" rounded="none" sizes="(min-width: 1024px) 21rem, 100vw" className="border-b border-white/[0.07]" />}
+                    <div className="flex flex-1 flex-col p-5 sm:p-6">
                     <div className="flex items-center gap-3">
                       <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-control border", TONE[tone].bg, TONE[tone].text, TONE[tone].border)}>
                         <Icon className="h-5 w-5" aria-hidden />
@@ -149,6 +154,7 @@ export function SubjectsOverview() {
                       <Button variant="secondary" href={`/materie/${s.id}`} className="w-full" aria-label={`Apri il programma di ${s.name}`}>
                         Apri il programma
                       </Button>
+                    </div>
                     </div>
                   </div>
 

@@ -6,6 +6,8 @@ import { type Technique } from "@/data/academy";
 import { TechniqueArt } from "./technique-art";
 import { ACADEMY_GROUPS, ACADEMY_ORDER, STARTER_IDS } from "./guide";
 import { Badge, Button, PageHeader } from "@/components/ui/primitives";
+import { ScienceFigure } from "@/components/imagery/science-figure";
+import { imagesForContext } from "@/data/imagery";
 import { TONE, type Tone } from "@/components/ui/tone";
 import { useDueCards, useHydrated } from "@/lib/hooks";
 import { useAtlas } from "@/lib/store";
@@ -98,19 +100,24 @@ function TechniqueCard({ t, status }: { t: Technique; status?: string }) {
 
 export function AcademyIndex() {
   const status = useTechniqueStatus();
+  const memory = imagesForContext("academy")[0];
   const byId = new Map(ACADEMY_ORDER.map((t) => [t.id, t]));
 
   return (
     <div className="pb-16">
-      <PageHeader
-        title="Impara a studiare con metodo"
-        description="Undici tecniche spiegate passo per passo, ognuna con un esercizio sulle lezioni di ATLAS. Per ciascuna trovi quanto è solida la ricerca che la sostiene."
-        actions={
-          <Button variant="primary" size="lg" href="/academy/active-recall">
-            Inizia da Active Recall
-          </Button>
-        }
-      />
+      <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_16rem] lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-12">
+        <PageHeader
+          title="Impara a studiare con metodo"
+          description="Undici tecniche spiegate passo per passo, ognuna con un esercizio sulle lezioni di ATLAS. Per ciascuna trovi quanto è solida la ricerca che la sostiene."
+          actions={
+            <Button variant="primary" size="lg" href="/academy/active-recall">
+              Inizia da Active Recall
+            </Button>
+          }
+          className="md:flex-col md:items-start"
+        />
+        {memory && <ScienceFigure image={memory} aspect="4/3" sizes="(min-width: 1024px) 20rem, 16rem" priority className="hidden md:block" />}
+      </div>
 
       <div className="mt-8 flex flex-col gap-4 border-y border-white/[0.07] py-4 lg:flex-row lg:items-center lg:justify-between">
         <nav aria-label="Obiettivi">

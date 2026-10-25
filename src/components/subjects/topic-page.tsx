@@ -17,6 +17,8 @@ import { useAtlas } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import type { TopicProgress, TopicStatus } from "@/lib/progress";
 import { cn, fmt } from "@/lib/utils";
+import { ScienceFigure } from "@/components/imagery/science-figure";
+import { imageForTopic } from "@/data/imagery";
 import { AdvancedBadge, cfu, useScrollPaddingTop } from "./shared";
 import {
   AdvancedPanel,
@@ -99,6 +101,7 @@ function Crumbs({ children }: { children: ReactNode[] }) {
 export function TopicPage({ topicId }: { topicId: string }) {
   const ref = getTopicRef(topicId)!;
   const lesson = getLesson(topicId);
+  const photo = imageForTopic(topicId);
   const hydrated = useHydrated();
   const states = useTopicStates(ref.subject.id);
   const state = hydrated ? states.find((s) => s.ref.topic.id === topicId) : undefined;
@@ -267,8 +270,9 @@ export function TopicPage({ topicId }: { topicId: string }) {
           )}
         </div>
 
-        {/* Right column: a 3:2 licensed image can later sit above this panel without changing the grid. */}
+        {/* Right column: the topic's licensed photograph (desktop only, so phones reach the lesson sooner), then progress. */}
         <div className="flex min-w-0 flex-col gap-4">
+          {photo && <ScienceFigure image={photo} aspect="3/2" sizes="20rem" className="hidden lg:block" />}
           <section aria-labelledby="avanzamento-h" className="card p-5">
             <h2 id="avanzamento-h" className="text-ui font-medium text-fg-muted">
               Il tuo avanzamento
