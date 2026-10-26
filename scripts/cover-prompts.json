@@ -1,0 +1,37 @@
+{
+  "note": "Prompts for the AI-generated covers of the resources that publish no usable official image. Run scripts/generate-covers.py. Covers are illustrations, never presented as official course material: no text, logos or university branding.",
+  "style": "Premium editorial cover illustration for a medical-school study app, 16:9 landscape. Near-black background (#06070A) with deep anthracite tones, one clear subject, cinematic soft lighting, a subtle electric-blue (#3D8BFF) rim light, {accent}. Scientifically accurate and refined, minimal composition with calm negative space on the left third. Absolutely no text, letters, numbers, labels, logos, watermarks or university branding.",
+  "accents": {
+    "biologia": "emerald green (#199E70) as the accent colour",
+    "chimica": "warm orange (#D95926) as the accent colour",
+    "fisica": "soft violet (#9085E9) as the accent colour",
+    "multi": "electric blue as the only accent colour",
+    "premium": "luminous gold (#EFC14F) accents"
+  },
+  "covers": [
+    { "id": "federica", "accent": "multi", "motif": "an empty modern university lecture hall at night seen from the back rows, large screens glowing with abstract molecular and cellular diagrams", "alt": "Illustrazione: un'aula universitaria vuota di sera, con grandi schermi che mostrano diagrammi molecolari astratti." },
+    { "id": "mit-7016", "accent": "biologia", "motif": "a eukaryotic cell seen as a fluorescence micrograph: nucleus, mitochondria, endoplasmic reticulum and cytoskeleton filaments", "alt": "Illustrazione: una cellula eucariotica in stile micrografia a fluorescenza, con nucleo, mitocondri e citoscheletro." },
+    { "id": "mit-701sc", "accent": "biologia", "motif": "a DNA double helix unwinding into a replication fork, the two new strands forming as glowing ribbons", "alt": "Illustrazione: la doppia elica del DNA che si apre in una forcella di replicazione." },
+    { "id": "mit-7012", "accent": "biologia", "motif": "a petri dish with bacterial colonies lit from below, seen from a low angle", "alt": "Illustrazione: una piastra di Petri con colonie batteriche illuminate dal basso." },
+    { "id": "mit-703", "accent": "biologia", "motif": "condensed metaphase chromosomes in fluorescence colours, arranged loosely like a karyotype", "alt": "Illustrazione: cromosomi in metafase in colori di fluorescenza, disposti come in un cariotipo." },
+    { "id": "mit-705", "accent": "biologia", "motif": "the ribbon structure of an enzyme with a small substrate molecule held in its active site", "alt": "Illustrazione: la struttura a nastro di un enzima con una piccola molecola di substrato nel sito attivo." },
+    { "id": "mit-5111sc", "accent": "chimica", "motif": "atomic orbitals (s, p and d lobes) rendered as translucent glowing clouds around a tiny nucleus", "alt": "Illustrazione: orbitali atomici s, p e d come nuvole luminose e trasparenti attorno al nucleo." },
+    { "id": "mit-512", "accent": "chimica", "motif": "a ball-and-stick model of a substituted benzene ring standing on a dark laboratory bench", "alt": "Illustrazione: modello a sfere e bastoncini di un anello benzenico sostituito su un banco di laboratorio." },
+    { "id": "mit-507sc", "accent": "chimica", "motif": "an enzyme active site cradling a reaction intermediate, with the reaction suggested by soft light trails", "alt": "Illustrazione: il sito attivo di un enzima che trattiene un intermedio di reazione." },
+    { "id": "mit-801sc", "accent": "fisica", "motif": "a swinging pendulum captured with stroboscopic multiple exposure", "alt": "Illustrazione: un pendolo in oscillazione fotografato con esposizione stroboscopica multipla." },
+    { "id": "mit-802", "accent": "fisica", "motif": "magnetic field lines around a bar magnet made visible by glowing iron filings", "alt": "Illustrazione: le linee del campo magnetico attorno a una barra magnetica, rese visibili dalla limatura di ferro." },
+    { "id": "mit-803sc", "accent": "fisica", "motif": "the interference pattern of two circular water waves in a ripple tank, lit from below", "alt": "Illustrazione: la figura di interferenza di due onde circolari in una vasca ondoscopica." },
+    { "id": "khan-bio", "accent": "biologia", "motif": "plant cells packed with chloroplasts under a light microscope", "alt": "Illustrazione: cellule vegetali ricche di cloroplasti al microscopio ottico." },
+    { "id": "khan-cellresp", "accent": "biologia", "motif": "a mitochondrion cut open to show its cristae, with ATP synthase complexes as tiny glowing turbines", "alt": "Illustrazione: un mitocondrio sezionato che mostra le creste e i complessi dell'ATP sintasi." },
+    { "id": "khan-chem", "accent": "chimica", "motif": "laboratory glassware (Erlenmeyer flasks and a beaker) holding coloured solutions, backlit", "alt": "Illustrazione: vetreria da laboratorio con soluzioni colorate in controluce." },
+    { "id": "khan-orgchem", "accent": "chimica", "motif": "a chiral molecule and its mirror image facing each other across a reflective surface", "alt": "Illustrazione: una molecola chirale e la sua immagine speculare ai due lati di una superficie riflettente." },
+    { "id": "khan-phys", "accent": "fisica", "motif": "a ball following a parabolic trajectory, shown as a stroboscopic sequence with a faint light trail", "alt": "Illustrazione: una palla che segue una traiettoria parabolica, in sequenza stroboscopica." },
+    { "id": "libretexts-chem", "accent": "chimica", "motif": "an open book made of light whose pages turn into an ordered arrangement of glowing atoms", "alt": "Illustrazione: un libro aperto di luce le cui pagine diventano una disposizione ordinata di atomi." },
+    { "id": "libretexts-bio", "accent": "biologia", "motif": "an open book whose pages grow into a branching network of cells", "alt": "Illustrazione: un libro aperto dalle cui pagine cresce una rete ramificata di cellule." },
+    { "id": "hyperphysics", "accent": "fisica", "motif": "a constellation-like map of physics phenomena (a lens, a wave, an atom, a pendulum) connected by thin glowing lines", "alt": "Illustrazione: una costellazione di fenomeni fisici, lente, onda, atomo e pendolo, collegati da linee sottili." },
+    { "id": "ibiology", "accent": "biologia", "motif": "a close-up of a microscope objective lens above a glowing specimen slide", "alt": "Illustrazione: primo piano di un obiettivo da microscopio sopra un vetrino illuminato." },
+    { "id": "ncbi-alberts", "accent": "biologia", "motif": "a detailed cell interior with cytoskeleton filaments, vesicles and the nucleus, in fluorescence colours", "alt": "Illustrazione: l'interno di una cellula con citoscheletro, vescicole e nucleo in colori di fluorescenza." },
+    { "id": "ncbi-berg", "accent": "chimica", "motif": "a glowing metabolic network drawn like a transit map, with molecules as nodes and pathways as lines", "alt": "Illustrazione: una rete metabolica luminosa disegnata come una mappa di metropolitana." },
+    { "id": "osmosis", "accent": "premium", "motif": "a refined anatomical illustration of the human heart with fine vessels", "alt": "Illustrazione: un cuore umano in stile tavola anatomica, con accenti dorati." }
+  ]
+}
