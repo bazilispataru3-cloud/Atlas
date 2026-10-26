@@ -135,6 +135,11 @@ export function StackedBars({
   const barW = Math.max(6, Math.min(28, slot * 0.58));
   const y = (v: number) => pad.t + innerH - (v / scale.max) * innerH;
   const todayIndex = data.findIndex((d) => d.highlight);
+  // Day labels thin out when the slots are narrower than the labels (e.g. 14 days on a phone),
+  // counting from today (or from the first bar) so that one is always shown.
+  const labelEvery = Math.max(1, Math.ceil((Math.max(...data.map((d) => textWidth(d.label))) + 8) / Math.max(1, slot)));
+  const labelAnchor = todayIndex >= 0 ? todayIndex : 0;
+  const showLabel = (i: number) => (((labelAnchor - i) % labelEvery) + labelEvery) % labelEvery === 0;
   const keys = useChartKeys(data.length, () => (todayIndex >= 0 ? todayIndex : data.length - 1));
   const [hover, setHover] = useState<number | null>(null);
   const shown = hover ?? keys.active;
@@ -197,7 +202,7 @@ export function StackedBars({
                 })}
               </g>
               <text x={cx} y={height - 9} textAnchor="middle" fontSize={12} className={d.highlight ? "fill-fg font-semibold" : "fill-fg-subtle"}>
-                {d.label}
+                {showLabel(i) ? d.label : ""}
               </text>
             </g>
           );

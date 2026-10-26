@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Clock, ListChecks, Play, Sparkles, Telescope } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, ListChecks, Play, Sparkles, Telescope } from "lucide-react";
 import type { StudyMode } from "@/lib/types";
 import { allTopicRefs, getTopicRef } from "@/data/syllabus";
 import { getLesson } from "@/data/lessons";
@@ -115,6 +115,7 @@ export function TopicPage({ topicId }: { topicId: string }) {
     ? ["panoramica", "spiegazione", "esempi", "diagrammi", "video", "flashcard", "quiz", ...(showAdvanced && lesson.advanced.length ? (["approfondimenti"] as TabId[]) : []), "fonti"]
     : ["panoramica", "video", ...(hasQuestions ? (["quiz"] as TabId[]) : []), "fonti"];
   const [tab, setTab] = useState<TabId>("panoramica");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const pendingSection = useRef<string | null>(null);
 
@@ -285,60 +286,73 @@ export function TopicPage({ topicId }: { topicId: string }) {
               ) : (
                 <Skeleton className="h-16 w-16 rounded-full" />
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm text-fg">Padronanza</div>
                 {status ? <StatusBadge status={status} className="mt-1.5" /> : <Skeleton className="mt-1.5 h-6 w-24" />}
               </div>
+              {/* Phones and tablets: details on demand, so the lesson starts on the first screens. */}
+              <button
+                type="button"
+                onClick={() => setDetailsOpen((v) => !v)}
+                aria-expanded={detailsOpen}
+                aria-controls="avanzamento-dettagli"
+                className="inline-flex h-11 shrink-0 items-center gap-1 self-center rounded-control px-3 text-ui font-medium text-fg-muted transition-colors hover:bg-white/[0.05] hover:text-fg lg:hidden"
+              >
+                {detailsOpen ? "Meno" : "Dettagli"}
+                <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", detailsOpen && "rotate-180")} aria-hidden />
+              </button>
             </div>
-            {step ? (
-              <p className="mt-4 max-w-[60ch] text-ui leading-relaxed text-fg-reading">{step.text}</p>
-            ) : (
-              <Skeleton className="mt-4 h-10 w-full" />
-            )}
-            {step?.quiz && tabs.includes("quiz") && (
-              <Button variant="secondary" size="sm" className="mt-3 h-10 sm:h-8" onClick={() => goTo("quiz")}>
-                <ListChecks className="h-3.5 w-3.5" aria-hidden /> Fai il quiz
-              </Button>
-            )}
-            {step?.cards && (
-              <Button variant="secondary" size="sm" className="mt-3 h-10 sm:h-8" href="/flashcard">
-                Ripassa le flashcard
-              </Button>
-            )}
-            <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-4">
-              <div className="min-w-0">
-                <dt className="text-xs text-fg-subtle">Ultimo studio</dt>
-                <dd className="mt-0.5 text-sm text-fg">{progress?.lastStudied ? fmt.dateShort(progress.lastStudied) : "Mai"}</dd>
-              </div>
-              <div className="min-w-0">
-                <dt className="text-xs text-fg-subtle">Miglior quiz</dt>
-                <dd className="mt-0.5 text-sm text-fg">
-                  {bestQuiz !== null ? (
-                    <>
-                      {fmt.percent(bestQuiz)}
-                      <span className="sr-only">, su {progress!.quiz.length} quiz</span>
-                    </>
-                  ) : (
-                    "Nessuno"
-                  )}
-                </dd>
-              </div>
-              {lesson && (
+            <div id="avanzamento-dettagli" className={cn(!detailsOpen && "max-lg:hidden")}>
+              {step ? (
+                <p className="mt-4 max-w-[60ch] text-ui leading-relaxed text-fg-reading">{step.text}</p>
+              ) : (
+                <Skeleton className="mt-4 h-10 w-full" />
+              )}
+              {step?.quiz && tabs.includes("quiz") && (
+                <Button variant="secondary" size="sm" className="mt-3 h-10 sm:h-8" onClick={() => goTo("quiz")}>
+                  <ListChecks className="h-3.5 w-3.5" aria-hidden /> Fai il quiz
+                </Button>
+              )}
+              {step?.cards && (
+                <Button variant="secondary" size="sm" className="mt-3 h-10 sm:h-8" href="/flashcard">
+                  Ripassa le flashcard
+                </Button>
+              )}
+              <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-white/[0.06] pt-4">
                 <div className="min-w-0">
-                  <dt className="text-xs text-fg-subtle">Sezioni lette</dt>
-                  <dd className="mt-0.5 text-sm tabular-nums text-fg">
-                    {readCount} di {lesson.sections.length}
+                  <dt className="text-xs text-fg-subtle">Ultimo studio</dt>
+                  <dd className="mt-0.5 text-sm text-fg">{progress?.lastStudied ? fmt.dateShort(progress.lastStudied) : "Mai"}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-xs text-fg-subtle">Miglior quiz</dt>
+                  <dd className="mt-0.5 text-sm text-fg">
+                    {bestQuiz !== null ? (
+                      <>
+                        {fmt.percent(bestQuiz)}
+                        <span className="sr-only">, su {progress!.quiz.length} quiz</span>
+                      </>
+                    ) : (
+                      "Nessuno"
+                    )}
                   </dd>
                 </div>
-              )}
-            </dl>
+                {lesson && (
+                  <div className="min-w-0">
+                    <dt className="text-xs text-fg-subtle">Sezioni lette</dt>
+                    <dd className="mt-0.5 text-sm tabular-nums text-fg">
+                      {readCount} di {lesson.sections.length}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
           </section>
         </div>
       </header>
 
       {/* Sections of the topic: opaque, under the top bar (z-30), above the content. */}
       <div ref={sentinelRef} aria-hidden />
-      <div className="sticky top-14 z-20 -mx-4 mt-10 bg-ink-950 px-4 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+      <div className="sticky top-14 z-20 -mx-4 mt-8 bg-ink-950 lg:mt-10 px-4 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
         <Tabs
           base={TABS_BASE}
           value={tab}

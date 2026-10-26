@@ -112,49 +112,49 @@ export function SubjectsOverview() {
                   <div className="flex flex-col lg:border-r lg:border-white/[0.07]">
                     {hero && <ScienceFigure image={hero} aspect="21/9" rounded="none" sizes="(min-width: 1024px) 21rem, 100vw" className="border-b border-white/[0.07]" />}
                     <div className="flex flex-1 flex-col p-5 sm:p-6">
-                    <div className="flex items-center gap-3">
-                      <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-control border", TONE[tone].bg, TONE[tone].text, TONE[tone].border)}>
-                        <Icon className="h-5 w-5" aria-hidden />
-                      </span>
-                      <h3 id={`materia-${s.id}`} className="font-display text-3xl leading-tight text-fg">
-                        {s.name}
-                      </h3>
-                    </div>
-                    <p className="mt-3 text-sm leading-relaxed text-fg-muted">{s.tagline}</p>
-                    <p className="mt-2 text-ui text-fg-subtle">
-                      {s.cfu} CFU, {pluralize(s.units.length, "unità", "unità")}, {pluralize(list.length, "argomento", "argomenti")}, {pluralize(lessons, "lezione ATLAS completa", "lezioni ATLAS complete")}
-                    </p>
-
-                    <div className="mt-6">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-ui text-fg-muted">Padronanza</span>
-                        {hydrated ? <span className="text-base font-semibold text-fg">{fmt.percent(m)}</span> : <Skeleton className="h-5 w-10" />}
+                      <div className="flex items-center gap-3">
+                        <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-control border", TONE[tone].bg, TONE[tone].text, TONE[tone].border)}>
+                          <Icon className="h-5 w-5" aria-hidden />
+                        </span>
+                        <h3 id={`materia-${s.id}`} className="font-display text-3xl leading-tight text-fg">
+                          {s.name}
+                        </h3>
                       </div>
-                      <ProgressBar value={hydrated ? m : 0} tone={tone} size="sm" className="mt-2" label={`Padronanza di ${s.name}`} />
-                      <TopicStrip states={list} className="mt-3" />
-                      <p className="mt-2 text-xs text-fg-subtle">
-                        {touched.length ? touched.map((t) => statusCount(t.st, t.n)).join(", ") + ", " : ""}
-                        {statusCount("nuovo", list.filter((x) => x.status === "nuovo").length)}
+                      <p className="mt-3 text-sm leading-relaxed text-fg-muted">{s.tagline}</p>
+                      <p className="mt-2 text-ui text-fg-subtle">
+                        {s.cfu} CFU, {pluralize(s.units.length, "unità", "unità")}, {pluralize(list.length, "argomento", "argomenti")}, {pluralize(lessons, "lezione ATLAS completa", "lezioni ATLAS complete")}
                       </p>
-                    </div>
 
-                    {hydrated && subjNext && (
-                      <div className="mt-6 border-t border-white/[0.07] pt-4">
-                        <div className="text-xs text-fg-subtle">Prossimo argomento</div>
-                        <Link
-                          href={`/materie/${s.id}/${subjNext.ref.topic.id}`}
-                          className="mt-1 line-clamp-2 text-sm font-medium text-fg underline-offset-4 hover:underline"
-                        >
-                          {subjNext.ref.topic.title}
-                        </Link>
+                      <div className="mt-6">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-ui text-fg-muted">Padronanza</span>
+                          {hydrated ? <span className="text-base font-semibold text-fg">{fmt.percent(m)}</span> : <Skeleton className="h-5 w-10" />}
+                        </div>
+                        <ProgressBar value={hydrated ? m : 0} tone={tone} size="sm" className="mt-2" label={`Padronanza di ${s.name}`} />
+                        <TopicStrip states={list} className="mt-3" />
+                        <p className="mt-2 text-xs text-fg-subtle">
+                          {touched.length ? touched.map((t) => statusCount(t.st, t.n)).join(", ") + ", " : ""}
+                          {statusCount("nuovo", list.filter((x) => x.status === "nuovo").length)}
+                        </p>
                       </div>
-                    )}
 
-                    <div className="pt-5 lg:mt-auto">
-                      <Button variant="secondary" href={`/materie/${s.id}`} className="w-full" aria-label={`Apri il programma di ${s.name}`}>
-                        Apri il programma
-                      </Button>
-                    </div>
+                      {hydrated && subjNext && (
+                        <div className="mt-6 border-t border-white/[0.07] pt-4">
+                          <div className="text-xs text-fg-subtle">Prossimo argomento</div>
+                          <Link
+                            href={`/materie/${s.id}/${subjNext.ref.topic.id}`}
+                            className="mt-1 line-clamp-2 text-sm font-medium text-fg underline-offset-4 hover:underline"
+                          >
+                            {subjNext.ref.topic.title}
+                          </Link>
+                        </div>
+                      )}
+
+                      <div className="pt-5 lg:mt-auto">
+                        <Button variant="secondary" href={`/materie/${s.id}`} className="w-full" aria-label={`Apri il programma di ${s.name}`}>
+                          Apri il programma
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
