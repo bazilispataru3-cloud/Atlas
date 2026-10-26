@@ -9,6 +9,17 @@ import { coverLabel } from "./catalog";
 
 type Size = "feature" | "card" | "row" | "thumb";
 
+/**
+ * Videos without the 16:9 hq720 frame (checked against i.ytimg.com on 26/10/2026): ask straight for
+ * their best existing preview, so the browser never logs a 404 before the fallback.
+ */
+const YT_BEST_PREVIEW: Record<string, "sddefault" | "hqdefault"> = {
+  "0ZxeQqtAVl0": "sddefault",
+  HzmI7A578ss: "hqdefault",
+  lfXDJKKPGfY: "hqdefault",
+  pAuRZr0AHhI: "hqdefault",
+};
+
 /** Image candidates, best first: hq720 is a sharp 16:9 frame; hqdefault exists for every video. */
 function sourcesFor(r: Resource, size: Size): { src: string; book: boolean }[] {
   if (r.image) {
@@ -18,7 +29,11 @@ function sourcesFor(r: Resource, size: Size): { src: string; book: boolean }[] {
   }
   if (r.youtubeId) {
     const base = `https://i.ytimg.com/vi/${r.youtubeId}`;
-    return size === "thumb" ? [{ src: `${base}/mqdefault.jpg`, book: false }] : [{ src: `${base}/hq720.jpg`, book: false }, { src: `${base}/hqdefault.jpg`, book: false }];
+    if (size === "thumb") return [{ src: `${base}/mqdefault.jpg`, book: false }];
+    const best = YT_BEST_PREVIEW[r.youtubeId];
+    return best
+      ? [{ src: `${base}/${best}.jpg`, book: false }, { src: `${base}/hqdefault.jpg`, book: false }]
+      : [{ src: `${base}/hq720.jpg`, book: false }, { src: `${base}/hqdefault.jpg`, book: false }];
   }
   return [];
 }
