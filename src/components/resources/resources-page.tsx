@@ -14,6 +14,9 @@ import { STATUS_LABEL } from "@/lib/progress";
 import { cn } from "@/lib/utils";
 import { ResourceCard } from "./resource-card";
 import { PremiumFab } from "./premium-fab";
+import { GENERATED_COVERS } from "@/data/generated-covers";
+
+const HAS_GENERATED_COVERS = Object.keys(GENERATED_COVERS).length > 0;
 import {
   DEFAULT_FILTERS,
   FREE,
@@ -299,6 +302,7 @@ export function ResourcesPage() {
             </span>
           ))}
           . Ogni link è stato aperto e verificato il {formatDay(VERIFIED_ON)}.
+          {HAS_GENERATED_COVERS && " Dove il corso non pubblica un’immagine, la copertina è un’illustrazione generata con IA, non un materiale ufficiale."}
         </span>
       </p>
 

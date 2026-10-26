@@ -99,6 +99,7 @@ supabase/schema.sql   schema e Row Level Security per la sincronizzazione (predi
 - **Elemento firma**: il «meridiano», una linea sottile in blu elettrico che segna il percorso di studio (piano di oggi, passi della sessione, avanzamento).
 - **Componenti condivisi** in `src/components/ui/`: pulsanti con stato di caricamento, card per ruolo, Tabs e Segmented con frecce da tastiera, Modal e Sheet accessibili, toast con azione, grafici SVG responsivi; shell in `src/components/layout/` con modalità focus per esami e ripassi.
 - **Immagini scientifiche** in `public/images/science/`, catalogate in `src/data/imagery.ts` con autore, licenza (pubblico dominio, CC BY, CC BY-SA) e pagina di origine; il componente `ScienceFigure` mostra sempre i crediti.
+- **Copertine illustrate con IA** (facoltative) per le risorse che non pubblicano un’immagine ufficiale utilizzabile: i prompt sono in `scripts/cover-prompts.json` (stile uniforme, nessun testo, logo o marchio delle università). Con `OPENAI_API_KEY` nell’ambiente, `python3 scripts/generate-covers.py` le genera con un modello di immagini OpenAI (`OPENAI_IMAGE_MODEL`, predefinito `gpt-image-1`), le salva in `public/images/covers/` e aggiorna `src/data/generated-covers.ts`. L’app le dichiara come illustrazioni generate con IA, mai come materiale ufficiale; senza file resta l’illustrazione ATLAS.
 
 ## Privacy
 

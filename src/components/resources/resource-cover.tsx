@@ -6,6 +6,7 @@ import { SUBJECT_TONE, TONE } from "@/components/ui/tone";
 import { cn } from "@/lib/utils";
 import { CoverArt, type CoverSubject } from "./cover-art";
 import { coverLabel } from "./catalog";
+import { GENERATED_COVERS } from "@/data/generated-covers";
 
 type Size = "feature" | "card" | "row" | "thumb";
 
@@ -20,12 +21,18 @@ const YT_BEST_PREVIEW: Record<string, "sddefault" | "hqdefault"> = {
   pAuRZr0AHhI: "hqdefault",
 };
 
-/** Image candidates, best first: hq720 is a sharp 16:9 frame; hqdefault exists for every video. */
-function sourcesFor(r: Resource, size: Size): { src: string; book: boolean }[] {
+type Source = { src: string; book: boolean; alt?: string; generated?: boolean };
+
+/**
+ * Image candidates, best first: the official image; for videos hq720 (a sharp 16:9 frame), then
+ * hqdefault, which exists for every video; otherwise an AI-generated illustration when one was made
+ * (scripts/generate-covers.py). With none of these the ATLAS illustration is drawn.
+ */
+function sourcesFor(r: Resource, size: Size): Source[] {
   if (r.image) {
     const { width, height } = r.image;
     const book = !!width && !!height && height / width > 0.75;
-    return [{ src: r.image.src, book }];
+    return [{ src: r.image.src, book, alt: r.image.alt }];
   }
   if (r.youtubeId) {
     const base = `https://i.ytimg.com/vi/${r.youtubeId}`;
@@ -34,6 +41,11 @@ function sourcesFor(r: Resource, size: Size): { src: string; book: boolean }[] {
     return best
       ? [{ src: `${base}/${best}.jpg`, book: false }, { src: `${base}/hqdefault.jpg`, book: false }]
       : [{ src: `${base}/hq720.jpg`, book: false }, { src: `${base}/hqdefault.jpg`, book: false }];
+  }
+  const generated = GENERATED_COVERS[r.id];
+  if (generated) {
+    const width = size === "thumb" || size === "row" ? 640 : 1536;
+    return [{ src: `/images/covers/${r.id}-${width}.webp`, book: false, alt: generated.alt, generated: true }];
   }
   return [];
 }
@@ -108,7 +120,9 @@ export function ResourceCover({ r, size = "card", className }: { r: Resource; si
   }
 
   const tint = premium ? TONE.gold.hex : TONE[SUBJECT_TONE[r.subjects[0]] ?? "azure"].hex;
-  const credit = r.image?.credit ?? (r.youtubeId ? "Anteprima: YouTube" : undefined);
+  const credit = current.generated
+    ? "Illustrazione generata con IA: non è un’immagine ufficiale del corso"
+    : (r.image?.credit ?? (r.youtubeId ? "Anteprima: YouTube" : undefined));
 
   if (current.book) {
     return (
@@ -122,7 +136,7 @@ export function ResourceCover({ r, size = "card", className }: { r: Resource; si
           ref={ref}
           key={current.src}
           src={current.src}
-          alt={r.image?.alt ?? ""}
+          alt={current.alt ?? ""}
           width={r.image?.width}
           height={r.image?.height}
           loading="lazy"
@@ -145,7 +159,7 @@ export function ResourceCover({ r, size = "card", className }: { r: Resource; si
         ref={ref}
         key={current.src}
         src={current.src}
-        alt={r.image?.alt ?? ""}
+        alt={current.alt ?? ""}
         loading="lazy"
         decoding="async"
         referrerPolicy="no-referrer"
